@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/images/stickercraft-showcase.png" alt="StickerCraft AI 界面截图" />
+  <img src="./docs/images/showcase.png" alt="StickerCraft AI 界面截图" />
 </p>
 
 ## 项目介绍
@@ -179,4 +179,3 @@ npm run preview
 - 更多贴纸风格预设。
 - 适合公开部署的后端代理。
 - 生成配置的导入和导出。
-

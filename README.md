@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="./docs/images/stickercraft-showcase.png" alt="StickerCraft AI screenshot" />
+  <img src="./docs/images/showcase.png" alt="StickerCraft AI screenshot" />
 </p>
 
 ## Overview
@@ -179,4 +179,3 @@ Issues and pull requests are welcome. Good first areas include:
 - More sticker style presets.
 - Backend proxy support for safer public deployments.
 - Import/export for generation settings.
-
