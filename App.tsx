@@ -115,7 +115,7 @@ const App: React.FC = () => {
               prompt: image.prompt,
               styleId: originalStyle.id,
               quantity: 1,
-              model: ModelType.STANDARD, // Defaulting to Standard for regen for speed
+              model: ModelType.NANO_BANANA_2, // Defaulting to Nano Banana 2 for quality/speed balance
               aspectRatio: AspectRatio.SQUARE, // Defaulting
               textConfig: { enabled: false, content: '', font: '', hasBorder: false, backgroundColor: 'white' }, // Reset text
               useThreeViews: false,

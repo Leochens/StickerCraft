@@ -1,10 +1,11 @@
 
-import React, { useState, useRef } from 'react';
-import { ModelType, AspectRatio, ImageResolution, StickerRequest, StickerStyle, TextConfig } from '../types';
+import React, { useEffect, useState, useRef } from 'react';
+import { AspectRatio, ImageResolution, StickerRequest, StickerStyle, TextConfig } from '../types';
 import { STICKER_STYLES, ASPECT_RATIOS, RESOLUTIONS, AVAILABLE_FONTS, BACKGROUND_COLORS, PRESET_PROMPTS } from '../constants';
 import { Wand2, Layers, Monitor, Sliders, Check, Plus, Upload, Trash2, ImagePlus, Info, Type, Palette as PaletteIcon, Sparkles, Box, LayoutPanelLeft, Sticker, ChevronDown, Smile, ChevronUp, Save, X, Lightbulb, ListPlus } from 'lucide-react';
 import { analyzeStyleFromImage, generateRelatedPrompts } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
+import { OFFICIAL_IMAGE_MODELS, loadGeminiSettings, modelSupportsImageSize } from '../services/geminiConfig';
 
 interface ControlPanelProps {
   onGenerate: (requests: StickerRequest[]) => void;
@@ -22,11 +23,16 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onRemoveCustomStyle
 }) => {
   const { t, language } = useLanguage();
+  const configuredImageModel = loadGeminiSettings().imageModel;
+  const initialModel = OFFICIAL_IMAGE_MODELS.some(option => option.value === configuredImageModel)
+    ? configuredImageModel
+    : 'custom';
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState(STICKER_STYLES[0].id);
   const [quantity, setQuantity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState(AspectRatio.SQUARE);
-  const [model, setModel] = useState(ModelType.STANDARD);
+  const [model, setModel] = useState<string>(initialModel);
+  const [customModel, setCustomModel] = useState(initialModel === 'custom' ? configuredImageModel : '');
   const [resolution, setResolution] = useState(ImageResolution.RES_1K);
   
   // Advanced Config
@@ -64,11 +70,31 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   const allStyles = [...STICKER_STYLES, ...customStyles];
   const activeStyle = allStyles.find(s => s.id === selectedStyle);
+  const isCustomModel = model === 'custom';
+  const activeModel = isCustomModel ? customModel.trim() : model;
+  const activeModelSupportsImageSize = modelSupportsImageSize(activeModel);
+
+  useEffect(() => {
+    const handleSettingsUpdated = () => {
+      const imageModel = loadGeminiSettings().imageModel;
+      if (OFFICIAL_IMAGE_MODELS.some(option => option.value === imageModel)) {
+        setModel(imageModel);
+        setCustomModel('');
+      } else {
+        setModel('custom');
+        setCustomModel(imageModel);
+      }
+    };
+
+    window.addEventListener('stickerCraft:gemini-settings-updated', handleSettingsUpdated);
+    return () => window.removeEventListener('stickerCraft:gemini-settings-updated', handleSettingsUpdated);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
     if (textEnabled && !textContent.trim()) return;
+    if (!activeModel) return;
 
     const distinctPrompts = prompt.split('\n').map(p => p.trim()).filter(p => p.length > 0);
     
@@ -78,9 +104,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       prompt: p,
       styleId: selectedStyle,
       quantity,
-      model,
+      model: activeModel,
       aspectRatio,
-      resolution: model === ModelType.PRO ? resolution : undefined,
+      resolution: activeModelSupportsImageSize ? resolution : undefined,
       textConfig: {
         enabled: textEnabled,
         content: textContent,
@@ -220,7 +246,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     setGeneratedPrompts([]);
   };
 
-  const isFormValid = prompt.trim().length > 0 && (!textEnabled || textContent.trim().length > 0);
+  const isFormValid = prompt.trim().length > 0 && (!textEnabled || textContent.trim().length > 0) && activeModel.length > 0;
 
   return (
     <div className="space-y-6 pb-20">
@@ -563,26 +589,43 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
 
         {/* Model */}
-        <div className="space-y-1">
+        <div className="space-y-1 col-span-2">
           <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t('config_model')}</label>
           <select
             value={model}
-            onChange={(e) => setModel(e.target.value as ModelType)}
+            onChange={(e) => setModel(e.target.value)}
             disabled={isGenerating}
             className="w-full p-1.5 rounded-lg border border-stone-200 bg-stone-50 text-xs font-bold text-stone-700 focus:border-orange-400 outline-none"
           >
-            <option value={ModelType.STANDARD}>Standard (Flash)</option>
-            <option value={ModelType.PRO}>Pro (Gemini 3)</option>
+            {OFFICIAL_IMAGE_MODELS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+            <option value="custom">{language === 'zh' ? '自定义模型名称...' : 'Custom model name...'}</option>
           </select>
+          {isCustomModel && (
+            <input
+              type="text"
+              value={customModel}
+              onChange={(e) => setCustomModel(e.target.value)}
+              disabled={isGenerating}
+              placeholder="e.g. gemini-3.1-flash-image-preview"
+              className="w-full p-1.5 rounded-lg border border-orange-200 bg-white text-xs font-bold text-stone-700 focus:border-orange-400 outline-none"
+            />
+          )}
+          <p className="text-[10px] text-stone-400 leading-snug">
+            {language === 'zh'
+              ? '优先使用官方图片模型；如果中转站改了模型名，可在这里手动输入。'
+              : 'Use official image models first. Enter a custom name if your proxy exposes different model IDs.'}
+          </p>
         </div>
 
         {/* Resolution */}
-        <div className={`space-y-1 ${model !== ModelType.PRO ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`space-y-1 col-span-2 ${!activeModelSupportsImageSize ? 'opacity-50 pointer-events-none' : ''}`}>
            <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t('config_resolution')}</label>
            <select
             value={resolution}
             onChange={(e) => setResolution(e.target.value as ImageResolution)}
-            disabled={isGenerating || model !== ModelType.PRO}
+            disabled={isGenerating || !activeModelSupportsImageSize}
             className="w-full p-1.5 rounded-lg border border-stone-200 bg-stone-50 text-xs font-bold text-stone-700 focus:border-orange-400 outline-none"
           >
             {RESOLUTIONS.map((res) => (

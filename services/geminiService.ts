@@ -1,10 +1,6 @@
-import { GoogleGenAI } from "@google/genai";
-import { ModelType, StickerRequest, GeneratedImage, StickerStyle } from "../types";
+import { StickerRequest, GeneratedImage, StickerStyle } from "../types";
 import { STICKER_STYLES } from "../constants";
-
-// Initialize the API client
-// Note: process.env.API_KEY is injected by the environment
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+import { createGeminiClient, loadGeminiSettings, modelSupportsImageSize } from "./geminiConfig";
 
 /**
  * Removes the background from an image using a flood-fill algorithm from the corners.
@@ -202,8 +198,8 @@ const generateSingleImage = async (
       },
     };
 
-    // Add resolution config only if using the Pro model
-    if (model === ModelType.PRO && resolution) {
+    // Add resolution config only for official/custom Pro image models.
+    if (modelSupportsImageSize(model) && resolution) {
       config.imageConfig.imageSize = resolution;
     }
 
@@ -222,6 +218,7 @@ const generateSingleImage = async (
     }
 
     // Call the API
+    const ai = createGeminiClient();
     const response = await ai.models.generateContent({
       model: model,
       contents: {
@@ -300,9 +297,11 @@ export const analyzeStyleFromImage = async (base64Image: string): Promise<string
   try {
     // Remove data URI prefix if present for the API call
     const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
+    const ai = createGeminiClient();
+    const { textModel } = loadGeminiSettings();
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: textModel,
       contents: {
         parts: [
           {
@@ -333,8 +332,10 @@ export const analyzeStyleFromImage = async (base64Image: string): Promise<string
  */
 export const generateRelatedPrompts = async (category: string): Promise<string[]> => {
   try {
+    const ai = createGeminiClient();
+    const { textModel } = loadGeminiSettings();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: textModel,
       contents: `Generate a list of 8 distinct, creative, and cute sticker subject ideas related to the category: "${category}". 
       Return ONLY the list of subjects, one per line. No numbering, no bullets, no extra text.
       Example for 'Fruit':

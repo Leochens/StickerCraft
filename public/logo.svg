@@ -1,0 +1,35 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="badge" x1="222" y1="164" x2="820" y2="858" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FB923C"/>
+      <stop offset="0.55" stop-color="#F97316"/>
+      <stop offset="1" stop-color="#F43F5E"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="308" y1="258" x2="692" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFF7ED"/>
+      <stop offset="1" stop-color="#FFE4E6"/>
+    </linearGradient>
+    <filter id="softShadow" x="84" y="94" width="856" height="856" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="30" stdDeviation="38" flood-color="#9A3412" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#softShadow)">
+    <path d="M512 126C735.12 126 898 288.88 898 512C898 735.12 735.12 898 512 898C288.88 898 126 735.12 126 512C126 288.88 288.88 126 512 126Z" fill="white"/>
+    <path d="M512 174C708.61 174 850 315.39 850 512C850 708.61 708.61 850 512 850C315.39 850 174 708.61 174 512C174 315.39 315.39 174 512 174Z" fill="url(#badge)"/>
+  </g>
+
+  <path d="M324 457C324 358.69 402.25 278 500.49 278H548C638.57 278 712 351.43 712 442V487.5C712 536.65 671.65 577 622.5 577H585.32C567.7 577 553.87 590.83 553.87 608.45V635.4C553.87 700.33 501.2 753 436.27 753C374.27 753 324 702.73 324 640.73V457Z" fill="url(#shine)"/>
+  <path d="M324 457C324 358.69 402.25 278 500.49 278H548C638.57 278 712 351.43 712 442V487.5C712 536.65 671.65 577 622.5 577H585.32C567.7 577 553.87 590.83 553.87 608.45V635.4C553.87 700.33 501.2 753 436.27 753C374.27 753 324 702.73 324 640.73V457Z" stroke="#9A3412" stroke-width="34" stroke-linejoin="round"/>
+
+  <circle cx="439" cy="421" r="38" fill="#F97316"/>
+  <circle cx="543" cy="387" r="34" fill="#F43F5E"/>
+  <circle cx="611" cy="466" r="31" fill="#FACC15"/>
+  <circle cx="428" cy="553" r="36" fill="#14B8A6"/>
+
+  <path d="M482 642C498.57 642 512 628.57 512 612C512 595.43 498.57 582 482 582C465.43 582 452 595.43 452 612C452 628.57 465.43 642 482 642Z" fill="#9A3412" opacity="0.18"/>
+
+  <path d="M710 286L731.32 343.68L789 365L731.32 386.32L710 444L688.68 386.32L631 365L688.68 343.68L710 286Z" fill="white"/>
+  <path d="M277 282L288.98 314.02L321 326L288.98 337.98L277 370L265.02 337.98L233 326L265.02 314.02L277 282Z" fill="white" opacity="0.92"/>
+  <path d="M738 661L751.61 697.39L788 711L751.61 724.61L738 761L724.39 724.61L688 711L724.39 697.39L738 661Z" fill="white" opacity="0.92"/>
+</svg>

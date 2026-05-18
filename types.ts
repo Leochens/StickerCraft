@@ -1,6 +1,14 @@
 export enum ModelType {
-  STANDARD = 'gemini-2.5-flash-image', // Fast, efficient
-  PRO = 'gemini-3-pro-image-preview', // High quality, supports sizes
+  NANO_BANANA_2 = 'gemini-3.1-flash-image-preview', // Best all-around Nano Banana model
+  NANO_BANANA_PRO = 'gemini-3-pro-image-preview', // Professional assets, supports larger sizes
+  NANO_BANANA = 'gemini-2.5-flash-image', // Fast and efficient
+}
+
+export interface GeminiSettings {
+  apiKey: string;
+  endpoint: string;
+  imageModel: string;
+  textModel: string;
 }
 
 export enum AspectRatio {
@@ -39,7 +47,7 @@ export interface StickerRequest {
   prompt: string;
   styleId: string;
   quantity: number;
-  model: ModelType;
+  model: string;
   aspectRatio: AspectRatio;
   resolution?: ImageResolution; // Only for Pro model
   textConfig: TextConfig;
@@ -63,4 +71,4 @@ export interface GenerationState {
   currentTask?: string;
 }
 
-export type Language = 'en' | 'zh';
+export type Language = 'en' | 'zh' | 'es' | 'fr' | 'de' | 'ja' | 'ko' | 'pt';
