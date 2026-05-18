@@ -1,0 +1,5 @@
+{
+  "name": "StickerCraft AI",
+  "description": "A cartoon-style sticker generator powered by Gemini. Create custom, high-quality stickers in various styles with just a text prompt.",
+  "requestFramePermissions": []
+}
