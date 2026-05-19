@@ -24,6 +24,12 @@
 </p>
 
 <p align="center">
+  <a href="https://world.guantou.site/">
+    <img src="https://world.guantou.site/badge.svg?theme=dark&accent=red&lang=en&size=sm" alt="GuanTou Lab" />
+  </a>
+</p>
+
+<p align="center">
   <img src="./docs/images/showcase.png" alt="StickerCraft AI screenshot" />
 </p>
 

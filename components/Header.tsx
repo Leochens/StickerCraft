@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronDown, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
+import { Check, ChevronDown, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LANGUAGE_OPTIONS } from '../constants';
 import { DEFAULT_GEMINI_ENDPOINT, DEFAULT_GEMINI_IMAGE_MODEL, DEFAULT_GEMINI_TEXT_MODEL, OFFICIAL_IMAGE_MODELS, OFFICIAL_TEXT_MODELS, loadGeminiSettings, resetGeminiSettings, saveGeminiSettings } from '../services/geminiConfig';
@@ -24,6 +24,7 @@ const Header: React.FC = () => {
   }, []);
 
   const selectedLanguage = LANGUAGE_OPTIONS.find(option => option.code === language) || LANGUAGE_OPTIONS[0];
+  const badgeLanguage = language === 'zh' ? 'zh' : 'en';
 
   const copy = language === 'zh'
     ? {
@@ -78,10 +79,23 @@ const Header: React.FC = () => {
             alt="StickerCraft logo"
             className="h-10 w-10 rounded-xl shadow-lg shadow-orange-200 transform -rotate-3"
           />
-          <div>
+          <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black text-stone-900 tracking-tight leading-none">
               Sticker<span className="text-orange-500">{t('title_suffix')}</span>
             </h1>
+            <a
+              href="https://world.guantou.site/"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Visit GuanTou Lab portfolio"
+              className="hidden xl:inline-flex h-11 min-w-[230px] items-center"
+            >
+              <img
+                src={`https://world.guantou.site/badge.svg?theme=light&accent=red&lang=${badgeLanguage}&size=lg`}
+                alt="GuanTou Lab"
+                className="h-11 w-auto"
+              />
+            </a>
           </div>
         </div>
         
@@ -138,6 +152,15 @@ const Header: React.FC = () => {
             )}
           </div>
 
+          <a
+            href="https://github.com/Leochens/StickerCraft"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open StickerCraft on GitHub"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors border border-transparent hover:border-orange-100"
+          >
+            <Github size={16} />
+          </a>
         </div>
       </div>
 
