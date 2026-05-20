@@ -4,6 +4,7 @@ import ControlPanel from './components/ControlPanel';
 import GeneratedGrid from './components/GeneratedGrid';
 import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, ImageResolution } from './types';
 import { generateStickers } from './services/geminiService';
+import { loadPersistedStickerCraftData, saveCustomStyles, saveGeneratedImages } from './services/storageService';
 import { STICKER_STYLES } from './constants';
 import { X, Download } from 'lucide-react';
 import { useLanguage } from './contexts/LanguageContext';
@@ -11,53 +12,74 @@ import { useLanguage } from './contexts/LanguageContext';
 const App: React.FC = () => {
   const { t } = useLanguage();
   
-  // Lazy initialize images from localStorage
-  const [images, setImages] = useState<GeneratedImage[]>(() => {
-    const saved = localStorage.getItem('stickerCraft_generatedImages');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse saved images", e);
-      }
-    }
-    return [];
-  });
-  
+  const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
   const [pendingQuantity, setPendingQuantity] = useState(0); // Track how many images are being generated
   const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   
   // Custom Styles State
   const [customStyles, setCustomStyles] = useState<StickerStyle[]>([]);
 
-  // Load custom styles from local storage on mount
+  // Load generated stickers and custom styles from IndexedDB on mount.
   useEffect(() => {
-    const savedStyles = localStorage.getItem('stickerCraft_customStyles');
-    if (savedStyles) {
-      try {
-        setCustomStyles(JSON.parse(savedStyles));
-      } catch (e) {
-        console.error("Failed to parse saved styles", e);
-      }
-    }
+    let isMounted = true;
+
+    loadPersistedStickerCraftData()
+      .then(({ images: persistedImages, customStyles: persistedCustomStyles }) => {
+        if (!isMounted) return;
+        setImages(persistedImages);
+        setCustomStyles(persistedCustomStyles);
+      })
+      .catch((storageError) => {
+        console.error("Failed to load persisted StickerCraft data", storageError);
+        if (isMounted) {
+          setError("Could not load saved stickers from browser storage.");
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setHasHydratedStorage(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Save custom styles whenever they change
+  // Save custom styles whenever they change after the initial IndexedDB hydration.
   useEffect(() => {
-    localStorage.setItem('stickerCraft_customStyles', JSON.stringify(customStyles));
-  }, [customStyles]);
+    if (!hasHydratedStorage) return;
 
-  // Save generated images to local storage whenever they change
+    saveCustomStyles(customStyles).catch((storageError) => {
+      console.error("Failed to save custom styles to IndexedDB", storageError);
+      setError("Custom styles could not be saved to browser storage.");
+    });
+  }, [customStyles, hasHydratedStorage]);
+
+  // Save generated images whenever they change after the initial IndexedDB hydration.
   useEffect(() => {
-    try {
-      localStorage.setItem('stickerCraft_generatedImages', JSON.stringify(images));
-    } catch (e) {
-      console.error("Failed to save images to localStorage (likely quota exceeded)", e);
+    if (!hasHydratedStorage) return;
+
+    saveGeneratedImages(images).catch((storageError) => {
+      console.error("Failed to save images to IndexedDB", storageError);
+      setError("Generated stickers could not be saved to browser storage.");
+    });
+  }, [images, hasHydratedStorage]);
+
+  useEffect(() => {
+    if (!previewImage) return;
+
+    const latestPreviewImage = images.find((image) => image.id === previewImage.id);
+    if (latestPreviewImage && latestPreviewImage !== previewImage) {
+      setPreviewImage(latestPreviewImage);
+    } else if (hasHydratedStorage && !latestPreviewImage) {
+      setPreviewImage(null);
     }
-  }, [images]);
+  }, [images, previewImage, hasHydratedStorage]);
 
   const handleAddCustomStyle = (style: StickerStyle) => {
     setCustomStyles(prev => [...prev, style]);
