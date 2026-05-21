@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { AspectRatio, ImageResolution, StickerRequest, StickerStyle, TextConfig } from '../types';
+import { AspectRatio, ImageResolution, StickerRequest, StickerStyle } from '../types';
 import { STICKER_STYLES, ASPECT_RATIOS, RESOLUTIONS, AVAILABLE_FONTS, BACKGROUND_COLORS, PRESET_PROMPTS } from '../constants';
 import { Wand2, Layers, Monitor, Sliders, Check, Plus, Upload, Trash2, ImagePlus, Info, Type, Palette as PaletteIcon, Sparkles, Box, LayoutPanelLeft, Sticker, ChevronDown, Smile, ChevronUp, Save, X, Lightbulb, ListPlus } from 'lucide-react';
 import { analyzeStyleFromImage, generateRelatedPrompts } from '../services/geminiService';
@@ -40,11 +40,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const [useStickerBorder, setUseStickerBorder] = useState(true);
   const [useFacialFeatures, setUseFacialFeatures] = useState(true);
 
-  // Text & Background Config
+  // Text Config
   const [textEnabled, setTextEnabled] = useState(false);
   const [textContent, setTextContent] = useState('');
   const [selectedFont, setSelectedFont] = useState(AVAILABLE_FONTS[0].name);
   const [textBorder, setTextBorder] = useState(true);
+
+  // Background Config
+  const [backgroundEnabled, setBackgroundEnabled] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState('white');
 
   // Generation Reference Image
@@ -93,7 +96,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
-    if (textEnabled && !textContent.trim()) return;
     if (!activeModel) return;
 
     const distinctPrompts = prompt.split('\n').map(p => p.trim()).filter(p => p.length > 0);
@@ -109,10 +111,13 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       resolution: activeModelSupportsImageSize ? resolution : undefined,
       textConfig: {
         enabled: textEnabled,
-        content: textContent,
+        content: textContent.trim(),
         font: selectedFont,
-        hasBorder: textBorder,
-        backgroundColor: backgroundColor
+        hasBorder: textBorder
+      },
+      backgroundConfig: {
+        enabled: backgroundEnabled,
+        color: backgroundColor
       },
       useThreeViews,
       useStickerBorder,
@@ -246,7 +251,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     setGeneratedPrompts([]);
   };
 
-  const isFormValid = prompt.trim().length > 0 && (!textEnabled || textContent.trim().length > 0) && activeModel.length > 0;
+  const isFormValid = prompt.trim().length > 0 && activeModel.length > 0;
 
   return (
     <div className="space-y-6 pb-20">
@@ -702,7 +707,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             <span className="text-xs font-bold text-stone-500 flex items-center gap-1">
                 <Type size={14} /> {t('text_section_title')}
             </span>
-             <button 
+             <button
               type="button"
               onClick={() => setTextEnabled(!textEnabled)}
               className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${textEnabled ? 'bg-orange-500' : 'bg-stone-300'}`}
@@ -732,21 +737,47 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                     </button>
                  ))}
                </div>
-               
-               {/* Color Circles */}
-               <div className="flex flex-wrap gap-1.5 pt-1">
-                  {BACKGROUND_COLORS.map((color) => (
-                    <button
-                      key={color.name}
-                      type="button"
-                      onClick={() => setBackgroundColor(color.value)}
-                      className={`
-                        w-5 h-5 rounded-full border border-stone-200 ${color.class}
-                        ${backgroundColor === color.value ? 'ring-2 ring-orange-400 ring-offset-1 scale-110' : ''}
-                      `}
-                    />
-                  ))}
-               </div>
+           </div>
+        )}
+      </div>
+
+      {/* Background Toggle Section */}
+      <div className="space-y-3 border-t border-stone-100 pt-4">
+        <div className="flex justify-between items-center">
+            <span className="text-xs font-bold text-stone-500 flex items-center gap-1">
+                <PaletteIcon size={14} /> {t('background_section_title')}
+            </span>
+             <button
+              type="button"
+              onClick={() => setBackgroundEnabled(!backgroundEnabled)}
+              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${backgroundEnabled ? 'bg-orange-500' : 'bg-stone-300'}`}
+            >
+              <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${backgroundEnabled ? 'translate-x-4' : ''}`}></div>
+            </button>
+        </div>
+
+        {backgroundEnabled && (
+           <div className="space-y-2 animate-fade-in bg-stone-50 p-3 rounded-lg border border-stone-100">
+              <span className="block text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t('bg_color')}</span>
+              <div className="flex flex-wrap gap-2">
+                {BACKGROUND_COLORS.map((color) => (
+                  <button
+                    key={color.name}
+                    type="button"
+                    onClick={() => setBackgroundColor(color.value)}
+                    title={color.name}
+                    className={`
+                      w-7 h-7 rounded-full border border-stone-200 ${color.class}
+                      ${backgroundColor === color.value ? 'ring-2 ring-orange-400 ring-offset-2 scale-110' : 'hover:scale-105'}
+                      transition-transform
+                    `}
+                  >
+                    {backgroundColor === color.value && (
+                      <Check size={14} className="mx-auto text-white drop-shadow-sm" />
+                    )}
+                  </button>
+                ))}
+              </div>
            </div>
         )}
       </div>

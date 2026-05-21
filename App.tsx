@@ -139,7 +139,8 @@ const App: React.FC = () => {
               quantity: 1,
               model: ModelType.NANO_BANANA_2, // Defaulting to Nano Banana 2 for quality/speed balance
               aspectRatio: AspectRatio.SQUARE, // Defaulting
-              textConfig: { enabled: false, content: '', font: '', hasBorder: false, backgroundColor: 'white' }, // Reset text
+              textConfig: { enabled: false, content: '', font: '', hasBorder: false }, // Reset text
+              backgroundConfig: { enabled: false, color: 'white' },
               useThreeViews: false,
               useStickerBorder: true,
               useFacialFeatures: true,

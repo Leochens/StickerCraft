@@ -40,7 +40,11 @@ export interface TextConfig {
   content: string;
   font: string;
   hasBorder: boolean;
-  backgroundColor: string;
+}
+
+export interface BackgroundConfig {
+  enabled: boolean;
+  color: string;
 }
 
 export interface StickerRequest {
@@ -51,6 +55,7 @@ export interface StickerRequest {
   aspectRatio: AspectRatio;
   resolution?: ImageResolution; // Only for Pro model
   textConfig: TextConfig;
+  backgroundConfig: BackgroundConfig;
   useThreeViews: boolean;
   useStickerBorder: boolean;
   useFacialFeatures: boolean;

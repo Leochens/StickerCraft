@@ -106,13 +106,16 @@ const generateSingleImage = async (
   request: StickerRequest, 
   styleModifier: string
 ): Promise<string> => {
-  const { prompt, model, aspectRatio, resolution, textConfig, useThreeViews, useStickerBorder, useFacialFeatures, referenceImage } = request;
+  const { prompt, model, aspectRatio, resolution, textConfig, backgroundConfig, useThreeViews, useStickerBorder, useFacialFeatures, referenceImage } = request;
 
   // Build the text instructions
   let textInstruction = "";
-  if (textConfig?.enabled && textConfig.content) {
+  if (textConfig?.enabled && textConfig.content.trim()) {
     const borderText = textConfig.hasBorder ? "with a thick white outline/border" : "without an outline";
-    textInstruction = `Important: The image MUST include the text "${textConfig.content}" written prominently in a ${textConfig.font} font style. Text style: ${borderText}.`;
+    textInstruction = `Important: The image MUST include the text "${textConfig.content.trim()}" written prominently in a ${textConfig.font} font style. Text style: ${borderText}.`;
+  } else if (textConfig?.enabled) {
+    const borderText = textConfig.hasBorder ? "with a thick white outline/border" : "without an outline";
+    textInstruction = `Important: Include short, relevant sticker text chosen by you. The text should fit the subject and be written prominently in a ${textConfig.font} font style. Text style: ${borderText}.`;
   } else {
     // Strict no-text requirement when disabled
     textInstruction = "Strictly NO text, NO letters, NO numbers, and NO typography in the image. The image must be purely visual.";
@@ -126,18 +129,15 @@ const generateSingleImage = async (
       faceInstruction = "STRICTLY NO FACES. Do NOT generate any facial features (eyes, nose, mouth). The subject must be faceless, shown from behind, or obscured. If the subject is an object, do not anthropomorphize it with a face.";
   }
 
-  // Determine Background Strategy
-  // If user wants default white background, we actually prompt for a contrast color internally
-  // to facilitate cleaner background removal, then remove it.
+  // Determine Background Strategy. When background is enabled, preserve it and
+  // skip transparency post-processing entirely.
   let promptBgColor = "white";
   let shouldRemoveBg = false;
   let removalTargetColor = { r: 255, g: 255, b: 255 }; // Default remove white
 
-  // Check if user has explicitly selected a color other than white
-  const userSelectedColor = textConfig?.backgroundColor;
-  const isDefaultBg = !userSelectedColor || userSelectedColor === 'white';
-
-  if (isDefaultBg) {
+  if (backgroundConfig?.enabled) {
+    promptBgColor = backgroundConfig.color || "white";
+  } else {
     shouldRemoveBg = true;
     if (useStickerBorder) {
         // STRATEGY: If generating a white sticker border, use a BLACK background 
@@ -149,9 +149,6 @@ const generateSingleImage = async (
         promptBgColor = "white";
         removalTargetColor = { r: 255, g: 255, b: 255 };
     }
-  } else {
-    // User picked a specific color (e.g. pastel pink), respect it.
-    promptBgColor = userSelectedColor;
   }
 
   const bgInstruction = `Isolated on a solid ${promptBgColor} background`;
