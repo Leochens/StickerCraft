@@ -4,11 +4,22 @@ export enum ModelType {
   NANO_BANANA = 'gemini-2.5-flash-image', // Fast and efficient
 }
 
-export interface GeminiSettings {
+export enum APIProvider {
+  GEMINI = 'gemini',
+  GPT = 'gpt',
+}
+
+export interface ProviderAPISettings {
   apiKey: string;
   endpoint: string;
   imageModel: string;
   textModel: string;
+}
+
+export interface APISettings {
+  activeProvider: APIProvider;
+  gemini: ProviderAPISettings;
+  gpt: ProviderAPISettings;
 }
 
 export enum AspectRatio {

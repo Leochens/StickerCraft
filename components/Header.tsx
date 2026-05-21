@@ -2,25 +2,37 @@ import React, { useEffect, useState } from 'react';
 import { Check, ChevronDown, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LANGUAGE_OPTIONS } from '../constants';
-import { DEFAULT_GEMINI_ENDPOINT, DEFAULT_GEMINI_IMAGE_MODEL, DEFAULT_GEMINI_TEXT_MODEL, OFFICIAL_IMAGE_MODELS, OFFICIAL_TEXT_MODELS, loadGeminiSettings, resetGeminiSettings, saveGeminiSettings } from '../services/geminiConfig';
-import { GeminiSettings, Language } from '../types';
+import {
+  getActiveProviderSettings,
+  getProviderDefaultEndpoint,
+  getProviderDefaultImageModel,
+  getProviderDefaultTextModel,
+  getProviderImageModels,
+  getProviderLabel,
+  getProviderTextModels,
+  isProviderConfigured,
+  loadAPISettings,
+  resetAPISettings,
+  saveAPISettings,
+} from '../services/apiConfig';
+import { APIProvider, APISettings, Language, ProviderAPISettings } from '../types';
 
 const Header: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
-  const [settings, setSettings] = useState<GeminiSettings>(() => loadGeminiSettings());
-  const [draft, setDraft] = useState<GeminiSettings>(() => loadGeminiSettings());
+  const [settings, setSettings] = useState<APISettings>(() => loadAPISettings());
+  const [draft, setDraft] = useState<APISettings>(() => loadAPISettings());
 
   useEffect(() => {
     const handleSettingsUpdated = () => {
-      const next = loadGeminiSettings();
+      const next = loadAPISettings();
       setSettings(next);
       setDraft(next);
     };
 
-    window.addEventListener('stickerCraft:gemini-settings-updated', handleSettingsUpdated);
-    return () => window.removeEventListener('stickerCraft:gemini-settings-updated', handleSettingsUpdated);
+    window.addEventListener('stickerCraft:api-settings-updated', handleSettingsUpdated);
+    return () => window.removeEventListener('stickerCraft:api-settings-updated', handleSettingsUpdated);
   }, []);
 
   const selectedLanguage = LANGUAGE_OPTIONS.find(option => option.code === language) || LANGUAGE_OPTIONS[0];
@@ -28,44 +40,68 @@ const Header: React.FC = () => {
 
   const copy = language === 'zh'
     ? {
-        settings: 'Gemini 配置',
+        settings: 'API 配置',
+        provider: '当前 API',
+        gemini: 'Gemini',
+        gpt: 'GPT / OpenAI',
         apiKey: 'API Key',
         endpoint: 'Endpoint',
         imageModel: '图片生成模型',
         helperModel: '文本模型',
-        apiKeyPlaceholder: '输入你的 Gemini API Key',
-        endpointHint: '官方端点建议使用 https://generativelanguage.googleapis.com/；只有在使用 Gemini 兼容中转站时才需要修改。',
-        imageModelHint: '图片生成优先建议 Nano Banana 2：gemini-3.1-flash-image-preview。需要专业资产或 4K 时可用 Nano Banana Pro。',
-        helperHint: '用于风格分析和提示词生成。官方文本模型可使用 Gemini 3 Pro：gemini-3-pro-preview；中转站可填写自己的文本模型名。',
+        apiKeyPlaceholder: '输入当前 API 的 Key',
+        endpointHint: 'Gemini 默认使用 Google 官方端点；GPT 默认使用 OpenAI /v1 端点。只有使用中转站时才需要修改。',
+        imageModelHint: '当前 API 必须配置一个图片生成模型。GPT 推荐 gpt-image-2，Gemini 推荐 Nano Banana 2。',
+        helperHint: '用于风格分析和提示词生成。当前 API 必须配置一个文本模型。',
         save: '保存配置',
-        reset: '恢复官方默认',
+        reset: '恢复默认',
         configured: '已配置',
         missing: '未配置',
       }
     : {
-        settings: 'Gemini Settings',
+        settings: 'API Settings',
+        provider: 'Active API',
+        gemini: 'Gemini',
+        gpt: 'GPT / OpenAI',
         apiKey: 'API Key',
         endpoint: 'Endpoint',
         imageModel: 'Image generation model',
         helperModel: 'Text model',
-        apiKeyPlaceholder: 'Enter your Gemini API Key',
-        endpointHint: 'Official endpoint recommendation: https://generativelanguage.googleapis.com/. Change it only for Gemini-compatible proxies.',
-        imageModelHint: 'Prefer Nano Banana 2 for image generation: gemini-3.1-flash-image-preview. Use Nano Banana Pro for professional assets or 4K output.',
-        helperHint: 'Used for style analysis and prompt generation. Gemini 3 Pro is supported: gemini-3-pro-preview. Proxy users can enter a custom text model.',
+        apiKeyPlaceholder: 'Enter the selected API key',
+        endpointHint: 'Gemini uses the official Google endpoint by default. GPT uses the OpenAI /v1 endpoint by default. Change this only for proxy services.',
+        imageModelHint: 'The selected API must have an image model. Prefer gpt-image-2 for GPT and Nano Banana 2 for Gemini.',
+        helperHint: 'Used for style analysis and prompt generation. The selected API must have a text model.',
         save: 'Save settings',
-        reset: 'Reset official defaults',
+        reset: 'Reset defaults',
         configured: 'Configured',
         missing: 'Missing',
       };
 
+  const activeSettings = getActiveProviderSettings(settings);
+  const activeDraft = draft[draft.activeProvider];
+  const activeProviderConfigured = isProviderConfigured(activeSettings);
+  const draftProviderConfigured = isProviderConfigured(activeDraft);
+  const activeProviderLabel = getProviderLabel(draft.activeProvider);
+  const activeImageModels = getProviderImageModels(draft.activeProvider);
+  const activeTextModels = getProviderTextModels(draft.activeProvider);
+
+  const updateProviderDraft = (provider: APIProvider, nextProviderSettings: Partial<ProviderAPISettings>) => {
+    setDraft(prev => ({
+      ...prev,
+      [provider]: {
+        ...prev[provider],
+        ...nextProviderSettings,
+      },
+    }));
+  };
+
   const handleSaveSettings = () => {
-    saveGeminiSettings(draft);
-    setSettings(loadGeminiSettings());
+    saveAPISettings(draft);
+    setSettings(loadAPISettings());
     setIsSettingsOpen(false);
   };
 
   const handleResetSettings = () => {
-    const defaults = resetGeminiSettings();
+    const defaults = resetAPISettings();
     setSettings(defaults);
     setDraft(defaults);
   };
@@ -102,19 +138,19 @@ const Header: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => {
-              const next = loadGeminiSettings();
+              const next = loadAPISettings();
               setDraft(next);
               setIsSettingsOpen(true);
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-xs font-bold border ${
-              settings.apiKey
+              activeProviderConfigured
                 ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
                 : 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100'
             }`}
           >
             <KeyRound size={14} />
             <span className="hidden sm:inline">{copy.settings}</span>
-            <span className="sm:hidden">{settings.apiKey ? copy.configured : copy.missing}</span>
+            <span className="sm:hidden">{activeProviderConfigured ? copy.configured : copy.missing}</span>
           </button>
 
            {/* Language Switcher */}
@@ -177,7 +213,9 @@ const Header: React.FC = () => {
                 </div>
                 <div>
                   <h2 className="font-black text-stone-900">{copy.settings}</h2>
-                  <p className="text-xs text-stone-400">{settings.apiKey ? copy.configured : copy.missing}</p>
+                  <p className="text-xs text-stone-400">
+                    {activeProviderLabel} · {draftProviderConfigured ? copy.configured : copy.missing}
+                  </p>
                 </div>
               </div>
               <button
@@ -189,12 +227,32 @@ const Header: React.FC = () => {
             </div>
 
             <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.provider}</span>
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-stone-100 p-1">
+                  {[APIProvider.GEMINI, APIProvider.GPT].map((provider) => (
+                    <button
+                      key={provider}
+                      type="button"
+                      onClick={() => setDraft(prev => ({ ...prev, activeProvider: provider }))}
+                      className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
+                        draft.activeProvider === provider
+                          ? 'bg-white text-orange-700 shadow-sm'
+                          : 'text-stone-500 hover:text-stone-800'
+                      }`}
+                    >
+                      {provider === APIProvider.GPT ? copy.gpt : copy.gemini}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.apiKey}</span>
+                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{activeProviderLabel} {copy.apiKey}</span>
                 <input
                   type="password"
-                  value={draft.apiKey}
-                  onChange={(event) => setDraft(prev => ({ ...prev, apiKey: event.target.value }))}
+                  value={activeDraft.apiKey}
+                  onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
                   placeholder={copy.apiKeyPlaceholder}
                   className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
                 />
@@ -204,9 +262,9 @@ const Header: React.FC = () => {
                 <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.endpoint}</span>
                 <input
                   type="url"
-                  value={draft.endpoint}
-                  onChange={(event) => setDraft(prev => ({ ...prev, endpoint: event.target.value }))}
-                  placeholder={DEFAULT_GEMINI_ENDPOINT}
+                  value={activeDraft.endpoint}
+                  onChange={(event) => updateProviderDraft(draft.activeProvider, { endpoint: event.target.value })}
+                  placeholder={getProviderDefaultEndpoint(draft.activeProvider)}
                   className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
                 />
                 <p className="text-xs text-stone-500 leading-relaxed">{copy.endpointHint}</p>
@@ -216,14 +274,14 @@ const Header: React.FC = () => {
                 <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.imageModel}</span>
                 <input
                   type="text"
-                  value={draft.imageModel}
-                  onChange={(event) => setDraft(prev => ({ ...prev, imageModel: event.target.value }))}
-                  placeholder={DEFAULT_GEMINI_IMAGE_MODEL}
-                  list="gemini-image-models"
+                  value={activeDraft.imageModel}
+                  onChange={(event) => updateProviderDraft(draft.activeProvider, { imageModel: event.target.value })}
+                  placeholder={getProviderDefaultImageModel(draft.activeProvider)}
+                  list="api-image-models"
                   className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
                 />
-                <datalist id="gemini-image-models">
-                  {OFFICIAL_IMAGE_MODELS.map((model) => (
+                <datalist id="api-image-models">
+                  {activeImageModels.map((model) => (
                     <option key={model.value} value={model.value}>{model.label}</option>
                   ))}
                 </datalist>
@@ -234,14 +292,14 @@ const Header: React.FC = () => {
                 <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.helperModel}</span>
                 <input
                   type="text"
-                  value={draft.textModel}
-                  onChange={(event) => setDraft(prev => ({ ...prev, textModel: event.target.value }))}
-                  placeholder={DEFAULT_GEMINI_TEXT_MODEL}
-                  list="gemini-helper-models"
+                  value={activeDraft.textModel}
+                  onChange={(event) => updateProviderDraft(draft.activeProvider, { textModel: event.target.value })}
+                  placeholder={getProviderDefaultTextModel(draft.activeProvider)}
+                  list="api-helper-models"
                   className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
                 />
-                <datalist id="gemini-helper-models">
-                  {OFFICIAL_TEXT_MODELS.map((model) => (
+                <datalist id="api-helper-models">
+                  {activeTextModels.map((model) => (
                     <option key={model.value} value={model.value}>{model.label}</option>
                   ))}
                 </datalist>
@@ -249,9 +307,11 @@ const Header: React.FC = () => {
               </label>
 
               <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-3 space-y-2">
-                <p className="text-xs font-black text-orange-800">{language === 'zh' ? '官方图片模型建议' : 'Official image model suggestions'}</p>
+                <p className="text-xs font-black text-orange-800">
+                  {language === 'zh' ? `${activeProviderLabel} 模型建议` : `${activeProviderLabel} model suggestions`}
+                </p>
                 <div className="flex flex-wrap gap-2">
-                  {OFFICIAL_IMAGE_MODELS.map((model) => (
+                  {activeImageModels.map((model) => (
                     <span key={model.value} className="px-2 py-1 rounded-lg bg-white border border-orange-100 text-[11px] font-bold text-orange-700">
                       {model.value}
                     </span>

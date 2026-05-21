@@ -1,6 +1,12 @@
-import { StickerRequest, GeneratedImage, StickerStyle } from "../types";
+import { APIProvider, AspectRatio, GeneratedImage, ImageResolution, ProviderAPISettings, StickerRequest, StickerStyle } from "../types";
 import { STICKER_STYLES } from "../constants";
-import { createGeminiClient, loadGeminiSettings, modelSupportsImageSize } from "./geminiConfig";
+import {
+  createGeminiClient,
+  getActiveProviderSettings,
+  getOpenAIEndpointUrl,
+  loadAPISettings,
+  modelSupportsImageSize,
+} from "./apiConfig";
 
 /**
  * Removes the background from an image using a flood-fill algorithm from the corners.
@@ -102,6 +108,180 @@ const removeBackground = async (
   });
 };
 
+const getDataUrlMimeType = (dataUrl: string) => (
+  dataUrl.match(/^data:([^;]+);base64,/)?.[1] || "image/png"
+);
+
+const dataUrlToBlob = async (dataUrl: string): Promise<Blob> => {
+  const response = await fetch(dataUrl);
+  return response.blob();
+};
+
+const requestOpenAI = async (
+  providerSettings: ProviderAPISettings,
+  path: string,
+  init: RequestInit,
+) => {
+  if (!providerSettings.apiKey.trim()) {
+    throw new Error("Please configure an OpenAI API Key before generating stickers.");
+  }
+
+  const response = await fetch(getOpenAIEndpointUrl(providerSettings, path), {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${providerSettings.apiKey.trim()}`,
+      ...(init.headers || {}),
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message = payload?.error?.message || payload?.message || `OpenAI API request failed (${response.status})`;
+    throw new Error(message);
+  }
+
+  return payload;
+};
+
+const extractOpenAIText = (payload: any): string => {
+  if (typeof payload?.output_text === "string") {
+    return payload.output_text.trim();
+  }
+
+  const textParts: string[] = [];
+  const outputs = Array.isArray(payload?.output) ? payload.output : [];
+
+  outputs.forEach((output: any) => {
+    const content = Array.isArray(output?.content) ? output.content : [];
+    content.forEach((part: any) => {
+      if (typeof part?.text === "string") {
+        textParts.push(part.text);
+      }
+    });
+  });
+
+  return textParts.join("\n").trim();
+};
+
+const generateOpenAIText = async (
+  prompt: string,
+  providerSettings: ProviderAPISettings,
+  imageDataUrl?: string,
+): Promise<string> => {
+  if (!providerSettings.textModel.trim()) {
+    throw new Error("Please configure an OpenAI text model before using helper features.");
+  }
+
+  const input = imageDataUrl
+    ? [{
+        role: "user",
+        content: [
+          { type: "input_text", text: prompt },
+          { type: "input_image", image_url: imageDataUrl },
+        ],
+      }]
+    : prompt;
+
+  const payload = await requestOpenAI(providerSettings, "responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: providerSettings.textModel,
+      input,
+    }),
+  });
+
+  const text = extractOpenAIText(payload);
+  if (!text) {
+    throw new Error("No text data found in OpenAI response.");
+  }
+
+  return text;
+};
+
+const getOpenAIImageSize = (aspectRatio: AspectRatio, resolution?: ImageResolution) => {
+  const is2K = resolution === ImageResolution.RES_2K;
+  const is4K = resolution === ImageResolution.RES_4K;
+
+  if (aspectRatio === AspectRatio.PORTRAIT) {
+    if (is4K) return "2160x3840";
+    if (is2K) return "1152x2048";
+    return "1024x1536";
+  }
+
+  if (aspectRatio === AspectRatio.LANDSCAPE) {
+    if (is4K) return "2048x1536";
+    if (is2K) return "2048x1536";
+    return "1536x1024";
+  }
+
+  if (aspectRatio === AspectRatio.WIDE) {
+    if (is4K) return "3840x2160";
+    if (is2K) return "2048x1152";
+    return "1536x864";
+  }
+
+  if (is4K || is2K) return "2048x2048";
+  return "1024x1024";
+};
+
+const extractOpenAIImageDataUrl = (payload: any): string => {
+  const imageBase64 = payload?.data?.[0]?.b64_json;
+  if (!imageBase64) {
+    throw new Error("No image data found in OpenAI response.");
+  }
+
+  const outputFormat = payload?.output_format || "png";
+  return `data:image/${outputFormat};base64,${imageBase64}`;
+};
+
+const generateOpenAIImage = async (
+  providerSettings: ProviderAPISettings,
+  model: string,
+  fullPrompt: string,
+  request: StickerRequest,
+): Promise<string> => {
+  if (!providerSettings.imageModel.trim() && !model.trim()) {
+    throw new Error("Please configure an OpenAI image model before generating stickers.");
+  }
+
+  const imageModel = model.trim() || providerSettings.imageModel.trim();
+  const size = getOpenAIImageSize(request.aspectRatio, request.resolution);
+
+  if (request.referenceImage) {
+    const formData = new FormData();
+    const imageBlob = await dataUrlToBlob(request.referenceImage);
+    const extension = getDataUrlMimeType(request.referenceImage).split("/")[1] || "png";
+    formData.append("model", imageModel);
+    formData.append("prompt", fullPrompt);
+    formData.append("size", size);
+    formData.append("output_format", "png");
+    formData.append("image[]", imageBlob, `reference.${extension}`);
+
+    return extractOpenAIImageDataUrl(await requestOpenAI(providerSettings, "images/edits", {
+      method: "POST",
+      body: formData,
+    }));
+  }
+
+  return extractOpenAIImageDataUrl(await requestOpenAI(providerSettings, "images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: imageModel,
+      prompt: fullPrompt,
+      size,
+      output_format: "png",
+      background: "opaque",
+    }),
+  }));
+};
+
 const generateSingleImage = async (
   request: StickerRequest, 
   styleModifier: string
@@ -189,6 +369,25 @@ const generateSingleImage = async (
   }
 
   try {
+    const apiSettings = loadAPISettings();
+    const activeProviderSettings = getActiveProviderSettings(apiSettings);
+
+    if (apiSettings.activeProvider === APIProvider.GPT) {
+      const rawBase64 = await generateOpenAIImage(activeProviderSettings, model, fullPrompt, request);
+
+      if (shouldRemoveBg) {
+        try {
+            const tolerance = promptBgColor === 'black' ? 30 : 15;
+            return await removeBackground(rawBase64, removalTargetColor, tolerance);
+        } catch (bgError) {
+            console.warn("Background removal failed, returning original.", bgError);
+            return rawBase64;
+        }
+      }
+
+      return rawBase64;
+    }
+
     const config: any = {
       imageConfig: {
         aspectRatio: aspectRatio,
@@ -215,7 +414,7 @@ const generateSingleImage = async (
     }
 
     // Call the API
-    const ai = createGeminiClient();
+    const ai = createGeminiClient(activeProviderSettings);
     const response = await ai.models.generateContent({
       model: model,
       contents: {
@@ -292,13 +491,20 @@ export const generateStickers = async (
  */
 export const analyzeStyleFromImage = async (base64Image: string): Promise<string> => {
   try {
+    const apiSettings = loadAPISettings();
+    const activeProviderSettings = getActiveProviderSettings(apiSettings);
+    const analysisPrompt = "Analyze the artistic style of this image. Provide a concise, comma-separated list of visual style descriptors (e.g., 'watercolor, soft edges, pastel colors, thick outlines') that can be used as a prompt modifier for generating similar sticker art. Do not describe the subject matter, ONLY the visual style, medium, and technique. Keep it under 30 words.";
+
+    if (apiSettings.activeProvider === APIProvider.GPT) {
+      return (await generateOpenAIText(analysisPrompt, activeProviderSettings, base64Image)).trim();
+    }
+
     // Remove data URI prefix if present for the API call
     const cleanBase64 = base64Image.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, '');
-    const ai = createGeminiClient();
-    const { textModel } = loadGeminiSettings();
+    const ai = createGeminiClient(activeProviderSettings);
 
     const response = await ai.models.generateContent({
-      model: textModel,
+      model: activeProviderSettings.textModel,
       contents: {
         parts: [
           {
@@ -308,7 +514,7 @@ export const analyzeStyleFromImage = async (base64Image: string): Promise<string
             }
           },
           {
-            text: "Analyze the artistic style of this image. Provide a concise, comma-separated list of visual style descriptors (e.g., 'watercolor, soft edges, pastel colors, thick outlines') that can be used as a prompt modifier for generating similar sticker art. Do not describe the subject matter, ONLY the visual style, medium, and technique. Keep it under 30 words."
+            text: analysisPrompt
           }
         ]
       }
@@ -329,17 +535,27 @@ export const analyzeStyleFromImage = async (base64Image: string): Promise<string
  */
 export const generateRelatedPrompts = async (category: string): Promise<string[]> => {
   try {
-    const ai = createGeminiClient();
-    const { textModel } = loadGeminiSettings();
-    const response = await ai.models.generateContent({
-      model: textModel,
-      contents: `Generate a list of 8 distinct, creative, and cute sticker subject ideas related to the category: "${category}". 
+    const apiSettings = loadAPISettings();
+    const activeProviderSettings = getActiveProviderSettings(apiSettings);
+    const prompt = `Generate a list of 8 distinct, creative, and cute sticker subject ideas related to the category: "${category}".
       Return ONLY the list of subjects, one per line. No numbering, no bullets, no extra text.
       Example for 'Fruit':
       Happy Apple
       Dancing Banana
       Cool Watermelon
-      ...`
+      ...`;
+
+    if (apiSettings.activeProvider === APIProvider.GPT) {
+      return (await generateOpenAIText(prompt, activeProviderSettings))
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+    }
+
+    const ai = createGeminiClient(activeProviderSettings);
+    const response = await ai.models.generateContent({
+      model: activeProviderSettings.textModel,
+      contents: prompt
     });
 
     if (response.text) {

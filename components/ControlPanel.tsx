@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { AspectRatio, ImageResolution, StickerRequest, StickerStyle } from '../types';
+import { APIProvider, AspectRatio, ImageResolution, StickerRequest, StickerStyle } from '../types';
 import { STICKER_STYLES, ASPECT_RATIOS, RESOLUTIONS, AVAILABLE_FONTS, BACKGROUND_COLORS, PRESET_PROMPTS } from '../constants';
 import { Wand2, Layers, Monitor, Sliders, Check, Plus, Upload, Trash2, ImagePlus, Info, Type, Palette as PaletteIcon, Sparkles, Box, LayoutPanelLeft, Sticker, ChevronDown, Smile, ChevronUp, Save, X, Lightbulb, ListPlus } from 'lucide-react';
 import { analyzeStyleFromImage, generateRelatedPrompts } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
-import { OFFICIAL_IMAGE_MODELS, loadGeminiSettings, modelSupportsImageSize } from '../services/geminiConfig';
+import { getActiveProviderSettings, getProviderImageModels, loadAPISettings, modelSupportsImageSize } from '../services/apiConfig';
 
 interface ControlPanelProps {
   onGenerate: (requests: StickerRequest[]) => void;
@@ -23,16 +23,29 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   onRemoveCustomStyle
 }) => {
   const { t, language } = useLanguage();
-  const configuredImageModel = loadGeminiSettings().imageModel;
-  const initialModel = OFFICIAL_IMAGE_MODELS.some(option => option.value === configuredImageModel)
-    ? configuredImageModel
-    : 'custom';
+  const getConfiguredImageModelState = () => {
+    const apiSettings = loadAPISettings();
+    const configuredImageModel = getActiveProviderSettings(apiSettings).imageModel;
+    const providerImageModels = getProviderImageModels(apiSettings.activeProvider);
+
+    return {
+      provider: apiSettings.activeProvider,
+      model: providerImageModels.some(option => option.value === configuredImageModel)
+        ? configuredImageModel
+        : 'custom',
+      customModel: providerImageModels.some(option => option.value === configuredImageModel)
+        ? ''
+        : configuredImageModel,
+    };
+  };
+  const initialModelState = getConfiguredImageModelState();
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState(STICKER_STYLES[0].id);
   const [quantity, setQuantity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState(AspectRatio.SQUARE);
-  const [model, setModel] = useState<string>(initialModel);
-  const [customModel, setCustomModel] = useState(initialModel === 'custom' ? configuredImageModel : '');
+  const [activeProvider, setActiveProvider] = useState<APIProvider>(initialModelState.provider);
+  const [model, setModel] = useState<string>(initialModelState.model);
+  const [customModel, setCustomModel] = useState(initialModelState.customModel);
   const [resolution, setResolution] = useState(ImageResolution.RES_1K);
   
   // Advanced Config
@@ -76,21 +89,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const isCustomModel = model === 'custom';
   const activeModel = isCustomModel ? customModel.trim() : model;
   const activeModelSupportsImageSize = modelSupportsImageSize(activeModel);
+  const imageModelOptions = getProviderImageModels(activeProvider);
 
   useEffect(() => {
     const handleSettingsUpdated = () => {
-      const imageModel = loadGeminiSettings().imageModel;
-      if (OFFICIAL_IMAGE_MODELS.some(option => option.value === imageModel)) {
-        setModel(imageModel);
-        setCustomModel('');
-      } else {
-        setModel('custom');
-        setCustomModel(imageModel);
-      }
+      const nextModelState = getConfiguredImageModelState();
+      setActiveProvider(nextModelState.provider);
+      setModel(nextModelState.model);
+      setCustomModel(nextModelState.customModel);
     };
 
-    window.addEventListener('stickerCraft:gemini-settings-updated', handleSettingsUpdated);
-    return () => window.removeEventListener('stickerCraft:gemini-settings-updated', handleSettingsUpdated);
+    window.addEventListener('stickerCraft:api-settings-updated', handleSettingsUpdated);
+    return () => window.removeEventListener('stickerCraft:api-settings-updated', handleSettingsUpdated);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -602,7 +612,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             disabled={isGenerating}
             className="w-full p-1.5 rounded-lg border border-stone-200 bg-stone-50 text-xs font-bold text-stone-700 focus:border-orange-400 outline-none"
           >
-            {OFFICIAL_IMAGE_MODELS.map((option) => (
+            {imageModelOptions.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
             <option value="custom">{language === 'zh' ? '自定义模型名称...' : 'Custom model name...'}</option>
@@ -613,14 +623,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               value={customModel}
               onChange={(e) => setCustomModel(e.target.value)}
               disabled={isGenerating}
-              placeholder="e.g. gemini-3.1-flash-image-preview"
+              placeholder={activeProvider === APIProvider.GPT ? 'e.g. gpt-image-2' : 'e.g. gemini-3.1-flash-image-preview'}
               className="w-full p-1.5 rounded-lg border border-orange-200 bg-white text-xs font-bold text-stone-700 focus:border-orange-400 outline-none"
             />
           )}
           <p className="text-[10px] text-stone-400 leading-snug">
             {language === 'zh'
-              ? '优先使用官方图片模型；如果中转站改了模型名，可在这里手动输入。'
-              : 'Use official image models first. Enter a custom name if your proxy exposes different model IDs.'}
+              ? `当前使用 ${activeProvider === APIProvider.GPT ? 'GPT / OpenAI' : 'Gemini'} 图片模型；如果中转站改了模型名，可在这里手动输入。`
+              : `Using ${activeProvider === APIProvider.GPT ? 'GPT / OpenAI' : 'Gemini'} image models. Enter a custom name if your proxy exposes different model IDs.`}
           </p>
         </div>
 
