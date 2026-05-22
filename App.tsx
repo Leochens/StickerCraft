@@ -2,9 +2,15 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import GeneratedGrid from './components/GeneratedGrid';
-import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, ImageResolution } from './types';
+import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, CropAdjustments } from './types';
 import { generateStickers } from './services/geminiService';
-import { repairStickerTransparency, splitStickerCollection } from './services/imageProcessing';
+import {
+  recropStickerFromSource,
+  repairStickerTransparency,
+  splitStickerCollectionByGridDetailed,
+  splitStickerCollectionDetailed,
+  SplitStickerCollectionResult,
+} from './services/imageProcessing';
 import { loadPersistedStickerCraftData, saveCustomStyles, saveGeneratedImages } from './services/storageService';
 import { STICKER_STYLES } from './constants';
 import { X, Download, BadgeCheck, FileImage, Layers3, ShieldCheck } from 'lucide-react';
@@ -139,7 +145,7 @@ const App: React.FC = () => {
               dataUrl: repairedDataUrl,
               backgroundRemoved: true,
               backgroundColor: undefined,
-              createdAt: Date.now(),
+              createdAt: repairedDataUrl === image.dataUrl ? img.createdAt : Date.now(),
             }
           : img
       ));
@@ -154,43 +160,79 @@ const App: React.FC = () => {
     }
   };
 
+  const buildCollectionItems = (
+    image: GeneratedImage,
+    result: SplitStickerCollectionResult,
+    method: 'auto' | 'manual',
+  ): GeneratedImage[] => {
+    const now = Date.now();
+
+    return result.pieces.map((piece, index) => ({
+      id: crypto.randomUUID(),
+      dataUrl: piece.dataUrl,
+      prompt: image.prompt,
+      createdAt: now + index,
+      styleName: image.styleName,
+      backgroundRemoved: true,
+      backgroundColor: undefined,
+      hasStickerBorder: image.hasStickerBorder,
+      hasText: image.hasText,
+      hasReferenceImage: image.hasReferenceImage,
+      isThreeViews: false,
+      isStickerCollection: false,
+      stickerCollectionCount: undefined,
+      sourceType: image.sourceType,
+      splitMethod: method,
+      splitIndex: index + 1,
+      splitSource: {
+        box: piece.box,
+        sourceWidth: piece.sourceWidth,
+        sourceHeight: piece.sourceHeight,
+      },
+    }));
+  };
+
+  const applyCollectionSplit = (
+    image: GeneratedImage,
+    result: SplitStickerCollectionResult,
+    method: 'auto' | 'manual',
+  ) => {
+    const collectionItems = buildCollectionItems(image, result, method);
+
+    setImages(prev => prev.map(img =>
+      img.id === image.id
+        ? {
+            ...img,
+            dataUrl: result.sourceDataUrl,
+            backgroundRemoved: true,
+            backgroundColor: undefined,
+            splitMethod: method,
+            collectionItems,
+          }
+        : img
+    ));
+  };
+
   const handleSplitCollection = async (image: GeneratedImage) => {
     setError(null);
     setSplittingCollectionIds(prev => new Set(prev).add(image.id));
 
     try {
-      const pieces = await splitStickerCollection(image.dataUrl, {
+      const result = await splitStickerCollectionDetailed(image.dataUrl, {
         backgroundColor: image.backgroundColor,
         expectedCount: image.stickerCollectionCount || 6,
         hasStickerBorder: image.hasStickerBorder,
       });
 
-      if (pieces.length === 0) {
+      if (result.pieces.length === 0) {
         throw new Error('No separated stickers were detected.');
       }
 
-      const now = Date.now();
-      const splitImages: GeneratedImage[] = pieces.map((dataUrl, index) => ({
-        ...image,
-        id: crypto.randomUUID(),
-        dataUrl,
-        createdAt: now + index,
-        backgroundRemoved: true,
-        backgroundColor: undefined,
-        isStickerCollection: false,
-        stickerCollectionCount: undefined,
-      }));
-
-      setImages(prev => {
-        const collectionIndex = prev.findIndex(img => img.id === image.id);
-        if (collectionIndex < 0) return [...splitImages, ...prev];
-
-        const next = [...prev];
-        next.splice(collectionIndex + 1, 0, ...splitImages);
-        return next;
-      });
+      applyCollectionSplit(image, result, 'auto');
+      return true;
     } catch (err: any) {
       setError(`Sticker split failed: ${err.message || 'Please try again.'}`);
+      return false;
     } finally {
       setSplittingCollectionIds(prev => {
         const next = new Set(prev);
@@ -198,6 +240,88 @@ const App: React.FC = () => {
         return next;
       });
     }
+  };
+
+  const handleManualSplitCollection = async (image: GeneratedImage, rows: number, columns: number) => {
+    setError(null);
+    setSplittingCollectionIds(prev => new Set(prev).add(image.id));
+
+    try {
+      const result = await splitStickerCollectionByGridDetailed(image.dataUrl, {
+        backgroundColor: image.backgroundColor,
+        rows,
+        columns,
+        hasStickerBorder: image.hasStickerBorder,
+      });
+
+      if (result.pieces.length === 0) {
+        throw new Error('No stickers were detected in the selected grid.');
+      }
+
+      applyCollectionSplit(image, result, 'manual');
+    } catch (err: any) {
+      setError(`Manual split failed: ${err.message || 'Please try again.'}`);
+    } finally {
+      setSplittingCollectionIds(prev => {
+        const next = new Set(prev);
+        next.delete(image.id);
+        return next;
+      });
+    }
+  };
+
+  const handleCropCollectionItem = async (
+    collectionId: string,
+    itemId: string,
+    adjustments: CropAdjustments,
+  ) => {
+    const collection = images.find(image => image.id === collectionId);
+    const item = collection?.collectionItems?.find(splitItem => splitItem.id === itemId);
+
+    if (!collection || !item?.splitSource) {
+      setError('Could not find the original sticker collection for recropping.');
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const recroppedDataUrl = await recropStickerFromSource(collection.dataUrl, item.splitSource.box, adjustments);
+
+      setImages(prev => prev.map(image =>
+        image.id === collectionId
+          ? {
+              ...image,
+              collectionItems: image.collectionItems?.map(splitItem =>
+                splitItem.id === itemId
+                  ? {
+                      ...splitItem,
+                      dataUrl: recroppedDataUrl,
+                      createdAt: Date.now(),
+                      splitSource: {
+                        ...splitItem.splitSource!,
+                        cropAdjustments: adjustments,
+                      },
+                    }
+                  : splitItem
+              ),
+            }
+          : image
+      ));
+    } catch (err: any) {
+      setError(`Recrop failed: ${err.message || 'Please try again.'}`);
+    }
+  };
+
+  const handleDeleteCollectionItem = (collectionId: string, itemId: string) => {
+    setImages(prev => prev.map(image =>
+      image.id === collectionId
+        ? {
+            ...image,
+            collectionItems: image.collectionItems?.filter(splitItem => splitItem.id !== itemId),
+          }
+        : image
+    ));
   };
 
   // Re-generate a specific image (Remix)
@@ -222,7 +346,7 @@ const App: React.FC = () => {
               aspectRatio: AspectRatio.SQUARE, // Defaulting
               textConfig: { enabled: false, content: '', font: '', hasBorder: false }, // Reset text
               backgroundConfig: { enabled: false, color: 'white' },
-              useThreeViews: false,
+              useThreeViews: Boolean(image.isThreeViews),
               useStickerCollection: Boolean(image.isStickerCollection),
               stickerCollectionCount: image.stickerCollectionCount || 6,
               useStickerBorder: true,
@@ -278,9 +402,17 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteImages = (ids: string[]) => {
+    const idSet = new Set(ids);
+    setImages(prev => prev.filter(img => !idSet.has(img.id)));
+    if (previewImage && idSet.has(previewImage.id)) {
+      closePreview();
+    }
+  };
+
   const assetCopy = language === 'zh'
     ? {
-        galleryDescription: '检查生成结果、透明状态和批量导出准备度。',
+        galleryDescription: '快快准备，获得你的贴纸',
         transparent: '透明 PNG',
         backgroundKept: '保留背景',
         uploaded: '上传素材',
@@ -351,7 +483,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col-reverse md:flex-row overflow-hidden">
         
         {/* Left Area (Desktop): Palette / Control Panel */}
-        <aside className="w-full md:w-[400px] lg:w-[450px] bg-white border-r border-orange-100 shadow-2xl shadow-orange-100/50 z-20 flex flex-col h-[50vh] md:h-auto overflow-hidden flex-shrink-0">
+        <aside className="w-full md:w-[360px] lg:w-[400px] bg-white border-r border-orange-100 shadow-2xl shadow-orange-100/50 z-20 flex flex-col h-[50vh] md:h-auto overflow-hidden flex-shrink-0">
           <div className="p-5 border-b border-orange-50 bg-white sticky top-0 z-10">
             <h3 className="text-lg font-black text-stone-800 uppercase tracking-wide flex items-center gap-2">
                <span className="w-2 h-6 bg-orange-500 rounded-full"></span>
@@ -396,9 +528,13 @@ const App: React.FC = () => {
                   pendingQuantity={pendingQuantity}
                   onPreview={setPreviewImage} 
                   onDelete={handleDeleteImage}
+                  onDeleteMany={handleDeleteImages}
                   onRegenerate={handleRegenerate}
                   onRepairTransparency={handleRepairTransparency}
                   onSplitCollection={handleSplitCollection}
+                  onManualSplitCollection={handleManualSplitCollection}
+                  onCropCollectionItem={handleCropCollectionItem}
+                  onDeleteCollectionItem={handleDeleteCollectionItem}
                   regeneratingIds={regeneratingIds}
                   transparencyRepairIds={transparencyRepairIds}
                   splittingCollectionIds={splittingCollectionIds}

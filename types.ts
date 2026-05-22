@@ -70,6 +70,7 @@ export interface StickerRequest {
   useThreeViews: boolean;
   useStickerCollection: boolean;
   stickerCollectionCount: number;
+  collectionItemPrompts?: string[];
   useStickerBorder: boolean;
   useFacialFeatures: boolean;
   referenceImage?: string; // Base64 data for image-to-image
@@ -86,9 +87,35 @@ export interface GeneratedImage {
   hasStickerBorder?: boolean;
   hasText?: boolean;
   hasReferenceImage?: boolean;
+  isThreeViews?: boolean;
   isStickerCollection?: boolean;
   stickerCollectionCount?: number;
   sourceType?: 'generated' | 'uploaded';
+  collectionItems?: GeneratedImage[];
+  splitMethod?: 'auto' | 'manual';
+  splitIndex?: number;
+  splitSource?: StickerSplitSource;
+}
+
+export interface ImageCropBox {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
+export interface CropAdjustments {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+export interface StickerSplitSource {
+  box: ImageCropBox;
+  sourceWidth: number;
+  sourceHeight: number;
+  cropAdjustments?: CropAdjustments;
 }
 
 export interface GenerationState {

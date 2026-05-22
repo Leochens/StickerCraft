@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { APIProvider, AspectRatio, ImageResolution, StickerRequest, StickerStyle } from '../types';
 import { STICKER_STYLES, ASPECT_RATIOS, RESOLUTIONS, AVAILABLE_FONTS, BACKGROUND_COLORS, PRESET_PROMPTS } from '../constants';
 import { Wand2, Layers, Monitor, Sliders, Check, Plus, Upload, Trash2, ImagePlus, Info, Type, Palette as PaletteIcon, Sparkles, Box, LayoutPanelLeft, Sticker, ChevronDown, Smile, ChevronUp, Save, X, Lightbulb, ListPlus } from 'lucide-react';
-import { analyzeStyleFromImage, generateRelatedPrompts } from '../services/geminiService';
+import { analyzeStyleFromImage, generateCollectionItemPrompts, generateRelatedPrompts } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getActiveProviderSettings, getProviderImageModels, loadAPISettings, modelSupportsImageSize } from '../services/apiConfig';
 
@@ -43,7 +43,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const initialModelState = getConfiguredImageModelState();
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState(STICKER_STYLES[0].id);
-  const [quantity, setQuantity] = useState(1);
   const [aspectRatio, setAspectRatio] = useState(AspectRatio.SQUARE);
   const [activeProvider, setActiveProvider] = useState<APIProvider>(initialModelState.provider);
   const [model, setModel] = useState<string>(initialModelState.model);
@@ -53,6 +52,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   // Advanced Config
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('single');
   const [stickerCollectionCount, setStickerCollectionCount] = useState(6);
+  const [collectionItemPrompts, setCollectionItemPrompts] = useState<string[]>(Array.from({ length: 6 }, () => ''));
+  const [isGeneratingCollectionItems, setIsGeneratingCollectionItems] = useState(false);
   const [useStickerBorder, setUseStickerBorder] = useState(true);
   const [useFacialFeatures, setUseFacialFeatures] = useState(true);
 
@@ -110,6 +111,31 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         backgroundMode: 'Background kept',
         backgroundHint: 'Keeps the selected background color for posters, cards, or scene-style assets.',
       };
+  const layoutCopy = language === 'zh'
+    ? {
+        typeTitle: '生成类型',
+        collectionCount: '子贴纸数量',
+        customCountHint: 'AI 可能无法在一张图上生成过多的贴纸，请注意。',
+        itemTitle: '每张子贴纸内容',
+        itemHint: '可手动输入，也可以根据上方提示词一键生成。',
+        itemPlaceholder: (index: number) => `第 ${index} 张贴纸内容`,
+        generateItems: 'AI 生成子内容',
+        generatingItems: '生成中...',
+        mainPromptLabel: layoutMode === 'collection' ? '贴纸集合主题' : t('prompt_label'),
+      }
+    : {
+        typeTitle: 'Generation type',
+        collectionCount: 'Stickers in this sheet',
+        customCountHint: 'AI may struggle to place too many stickers on one image. Please review the result.',
+        itemTitle: 'Mini sticker subjects',
+        itemHint: 'Type them manually, or generate them from the main prompt.',
+        itemPlaceholder: (index: number) => `Sticker ${index} subject`,
+        generateItems: 'Generate subjects',
+        generatingItems: 'Generating...',
+        mainPromptLabel: layoutMode === 'collection' ? 'Sticker collection theme' : t('prompt_label'),
+      };
+  const collectionCountPresets = [4, 6, 9];
+  const isCustomCollectionCount = !collectionCountPresets.includes(stickerCollectionCount);
 
   useEffect(() => {
     const handleSettingsUpdated = () => {
@@ -123,6 +149,36 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     return () => window.removeEventListener('stickerCraft:api-settings-updated', handleSettingsUpdated);
   }, []);
 
+  useEffect(() => {
+    setCollectionItemPrompts(prev => (
+      Array.from({ length: stickerCollectionCount }, (_, index) => prev[index] || '')
+    ));
+  }, [stickerCollectionCount]);
+
+  const updateStickerCollectionCount = (nextCount: number) => {
+    setStickerCollectionCount(Math.max(2, Math.min(12, Math.round(nextCount || 2))));
+  };
+
+  const updateCollectionItemPrompt = (index: number, value: string) => {
+    setCollectionItemPrompts(prev => prev.map((item, itemIndex) => (
+      itemIndex === index ? value : item
+    )));
+  };
+
+  const handleGenerateCollectionItems = async () => {
+    if (!prompt.trim()) return;
+
+    setIsGeneratingCollectionItems(true);
+    try {
+      const items = await generateCollectionItemPrompts(prompt.trim(), stickerCollectionCount);
+      setCollectionItemPrompts(prev => (
+        Array.from({ length: stickerCollectionCount }, (_, index) => items[index] || prev[index] || '')
+      ));
+    } finally {
+      setIsGeneratingCollectionItems(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
@@ -135,7 +191,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     const requests: StickerRequest[] = distinctPrompts.map(p => ({
       prompt: p,
       styleId: selectedStyle,
-      quantity,
+      quantity: 1,
       model: activeModel,
       aspectRatio,
       resolution: activeModelSupportsImageSize ? resolution : undefined,
@@ -151,7 +207,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       },
       useThreeViews: layoutMode === 'threeViews',
       useStickerCollection: layoutMode === 'collection',
-      stickerCollectionCount,
+      stickerCollectionCount: layoutMode === 'collection' ? stickerCollectionCount : 1,
+      collectionItemPrompts: layoutMode === 'collection'
+        ? collectionItemPrompts.map(item => item.trim()).filter(Boolean)
+        : undefined,
       useStickerBorder,
       useFacialFeatures,
       referenceImage: referenceImage || undefined
@@ -287,12 +346,91 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="space-y-6 pb-20">
+      <div className="rounded-xl border border-orange-100 bg-white p-2.5 shadow-sm shadow-orange-100/40 space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[10px] font-black text-orange-700 uppercase tracking-wider">
+            {layoutCopy.typeTitle}
+          </span>
+          <span className="h-1.5 w-1.5 rounded-full bg-orange-400"></span>
+        </div>
+        <div className="grid grid-cols-3 gap-1 rounded-xl bg-stone-50 p-1" aria-label={t('config_layout_mode')}>
+          {[
+            { value: 'single' as const, label: t('config_single_sticker'), icon: Sticker },
+            { value: 'threeViews' as const, label: t('config_three_views'), icon: LayoutPanelLeft },
+            { value: 'collection' as const, label: t('config_sticker_collection'), icon: Layers },
+          ].map((option) => {
+            const Icon = option.icon;
+            const isSelected = layoutMode === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setLayoutMode(option.value)}
+                disabled={isGenerating}
+                aria-pressed={isSelected}
+                className={`flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[9px] font-black leading-tight transition-all sm:text-[10px] ${
+                  isSelected
+                    ? 'bg-orange-500 text-white shadow-md shadow-orange-200'
+                    : 'text-stone-500 hover:bg-orange-50 hover:text-orange-700'
+                }`}
+              >
+                <Icon size={14} />
+                <span className="max-w-full whitespace-normal break-words text-center">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {layoutMode === 'collection' && (
+          <div className="space-y-2 animate-fade-in">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-100 bg-white p-2">
+              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                {layoutCopy.collectionCount}
+              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <div className="flex rounded-lg bg-stone-100 p-1">
+                  {collectionCountPresets.map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => updateStickerCollectionCount(num)}
+                      disabled={isGenerating}
+                      className={`w-9 py-1 text-xs font-bold rounded-md transition-all ${
+                        stickerCollectionCount === num
+                          ? 'bg-white text-orange-600 shadow-sm'
+                          : 'text-stone-500 hover:text-stone-700'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  min={2}
+                  max={12}
+                  value={stickerCollectionCount}
+                  onChange={(event) => updateStickerCollectionCount(Number(event.target.value))}
+                  disabled={isGenerating}
+                  className="w-16 rounded-lg border border-orange-100 bg-orange-50 px-2 py-1.5 text-center text-xs font-black text-orange-700 outline-none focus:border-orange-400 focus:bg-white"
+                />
+              </div>
+            </div>
+            {isCustomCollectionCount && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-[10px] font-bold leading-relaxed text-amber-700 border border-amber-100">
+                {layoutCopy.customCountHint}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
       
       {/* Prompt Section */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
             <label htmlFor="prompt" className="block text-xs font-bold text-stone-500 uppercase tracking-wider">
-            {t('prompt_label')}
+            {layoutCopy.mainPromptLabel}
             </label>
             <button 
                 type="button"
@@ -375,6 +513,48 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         </div>
       </div>
 
+      {layoutMode === 'collection' && (
+        <div className="rounded-2xl border border-orange-100 bg-orange-50/40 p-3 space-y-3 animate-fade-in">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black text-orange-900">{layoutCopy.itemTitle}</p>
+              <p className="mt-1 text-[10px] font-semibold leading-relaxed text-orange-700/80">{layoutCopy.itemHint}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleGenerateCollectionItems}
+              disabled={isGenerating || isGeneratingCollectionItems || !prompt.trim()}
+              className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-[10px] font-black text-orange-700 border border-orange-100 shadow-sm hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isGeneratingCollectionItems ? (
+                <div className="h-3 w-3 rounded-full border-2 border-orange-200 border-t-orange-600 animate-spin"></div>
+              ) : (
+                <Wand2 size={13} />
+              )}
+              {isGeneratingCollectionItems ? layoutCopy.generatingItems : layoutCopy.generateItems}
+            </button>
+          </div>
+
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+            {collectionItemPrompts.map((itemPrompt, index) => (
+              <label key={index} className="flex items-center gap-2">
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-black text-orange-600 border border-orange-100">
+                  {index + 1}
+                </span>
+                <input
+                  type="text"
+                  value={itemPrompt}
+                  onChange={(event) => updateCollectionItemPrompt(index, event.target.value)}
+                  placeholder={layoutCopy.itemPlaceholder(index + 1)}
+                  disabled={isGenerating}
+                  className="min-w-0 flex-1 rounded-lg border border-orange-100 bg-white px-3 py-2 text-xs font-bold text-stone-700 outline-none focus:border-orange-400"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Style Selection - Dropdown */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
@@ -415,7 +595,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
             {/* Dropdown Menu */}
             {isStyleDropdownOpen && (
-                <div className="absolute top-full left-0 w-full mt-2 bg-white border border-stone-200 rounded-xl shadow-xl z-20 max-h-60 overflow-y-auto custom-scrollbar animate-fade-in">
+                <div className="absolute top-full left-0 w-full mt-2 bg-white border border-stone-200 rounded-2xl shadow-2xl shadow-stone-200/70 z-30 max-h-72 overflow-y-auto custom-scrollbar animate-fade-in p-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {allStyles.map((style) => (
                         <button
                             key={style.id}
@@ -425,27 +606,36 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
                                 setIsStyleDropdownOpen(false);
                             }}
                             className={`
-                                w-full p-3 flex items-center justify-between hover:bg-orange-50 transition-colors border-b border-stone-50 last:border-0
-                                ${selectedStyle === style.id ? 'bg-orange-50/50' : ''}
+                                group min-h-[82px] rounded-xl border p-2 text-left transition-all hover:-translate-y-0.5 hover:border-orange-200 hover:bg-orange-50 hover:shadow-sm
+                                ${selectedStyle === style.id ? 'border-orange-300 bg-orange-50 shadow-sm shadow-orange-100' : 'border-stone-100 bg-white'}
                             `}
                         >
-                            <div className="flex items-center gap-3">
+                            <div className="mb-2 flex items-start justify-between gap-2">
                                 <div className={`
-                                  w-6 h-6 rounded-lg overflow-hidden flex-shrink-0 
+                                  h-9 w-9 rounded-lg overflow-hidden flex-shrink-0
                                   ${style.referenceImage ? 'bg-stone-100' : `${style.previewColor} bg-opacity-20 flex items-center justify-center`}
                                 `}>
                                   {style.referenceImage ? (
                                     <img src={style.referenceImage} alt={style.name} className="w-full h-full object-cover" />
                                   ) : (
-                                     <div className={`w-2 h-2 rounded-full ${style.previewColor}`}></div>
+                                     <div className={`w-3.5 h-3.5 rounded-full ${style.previewColor}`}></div>
                                   )}
                                 </div>
-                                <span className={`text-xs font-bold ${selectedStyle === style.id ? 'text-orange-600' : 'text-stone-600'}`}>
-                                    {language === 'zh' && style.label_zh ? style.label_zh : style.name}
-                                </span>
+                                {selectedStyle === style.id && (
+                                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-white">
+                                    <Check size={12} strokeWidth={3} />
+                                  </span>
+                                )}
                             </div>
+                            <span className={`block truncate text-xs font-black ${selectedStyle === style.id ? 'text-orange-700' : 'text-stone-700 group-hover:text-orange-700'}`}>
+                                {language === 'zh' && style.label_zh ? style.label_zh : style.name}
+                            </span>
+                            <span className="mt-1 block truncate text-[9px] font-semibold text-stone-400">
+                              {style.name}
+                            </span>
                         </button>
                     ))}
+                  </div>
                 </div>
             )}
         </div>
@@ -588,30 +778,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       {/* Configuration Grid - 2 cols for sidebar */}
       <div className="grid grid-cols-2 gap-3 pt-4 border-t border-stone-100">
-        {/* Quantity */}
-        <div className="space-y-1">
-          <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t('config_quantity')}</label>
-          <div className="flex bg-stone-100 p-1 rounded-lg">
-            {[1, 2, 4].map((num) => (
-              <button
-                key={num}
-                type="button"
-                onClick={() => setQuantity(num)}
-                disabled={isGenerating}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                  quantity === num 
-                    ? 'bg-white text-orange-600 shadow-sm' 
-                    : 'text-stone-500 hover:text-stone-700'
-                }`}
-              >
-                {num}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Aspect Ratio */}
-        <div className="space-y-1">
+        <div className="space-y-1 col-span-2">
           <label className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">{t('config_ratio')}</label>
           <select
             value={aspectRatio}
@@ -713,69 +881,6 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
              />
         </label>
         
-        <div className="rounded-xl border border-stone-100 p-3">
-          <div className="mb-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
-            {t('config_layout_mode')}
-          </div>
-          <div className="grid grid-cols-3 gap-1 rounded-xl bg-stone-100 p-1" aria-label={t('config_layout_mode')}>
-            {[
-              { value: 'single' as const, label: t('config_single_sticker'), icon: Sticker },
-              { value: 'threeViews' as const, label: t('config_three_views'), icon: LayoutPanelLeft },
-              { value: 'collection' as const, label: t('config_sticker_collection'), icon: Layers },
-            ].map((option) => {
-              const Icon = option.icon;
-              const isSelected = layoutMode === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setLayoutMode(option.value)}
-                  disabled={isGenerating}
-                  aria-pressed={isSelected}
-                  className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold leading-tight transition-all ${
-                    isSelected
-                      ? 'bg-white text-orange-600 shadow-sm'
-                      : 'text-stone-500 hover:text-stone-800'
-                  }`}
-                >
-                  <Icon size={15} />
-                  <span>{option.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {layoutMode === 'collection' && (
-            <div className="px-3 pb-3 animate-fade-in">
-              <p className="mb-2 mt-3 text-[10px] text-stone-400 leading-snug">
-                {t('config_sticker_collection_hint')}
-              </p>
-              <div className="flex items-center justify-between gap-3 rounded-lg bg-white border border-orange-100 p-2">
-                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
-                  {t('config_sticker_collection_count')}
-                </span>
-                <div className="flex bg-stone-100 p-1 rounded-lg">
-                  {[4, 6, 9].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setStickerCollectionCount(num)}
-                      disabled={isGenerating}
-                      className={`w-9 py-1 text-xs font-bold rounded-md transition-all ${
-                        stickerCollectionCount === num
-                          ? 'bg-white text-orange-600 shadow-sm'
-                          : 'text-stone-500 hover:text-stone-700'
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Text Toggle Section */}

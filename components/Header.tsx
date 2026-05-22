@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronDown, ExternalLink, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, Eye, EyeOff, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LANGUAGE_OPTIONS } from '../constants';
 import {
@@ -23,6 +23,7 @@ const Header: React.FC = () => {
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [settings, setSettings] = useState<APISettings>(() => loadAPISettings());
   const [draft, setDraft] = useState<APISettings>(() => loadAPISettings());
+  const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
 
   useEffect(() => {
     const handleSettingsUpdated = () => {
@@ -59,6 +60,8 @@ const Header: React.FC = () => {
         proxyTitle: '仍然无法使用官方 API？',
         proxyDescription: '如果因为地区、网络或账号限制无法使用官方 API，再考虑使用 VAPI 来做中转。',
         proxyAction: '打开 VAPI',
+        showApiKey: '显示 API Key',
+        hideApiKey: '隐藏 API Key',
         save: '保存配置',
         reset: '恢复默认',
         configured: '已配置',
@@ -84,6 +87,8 @@ const Header: React.FC = () => {
         proxyTitle: 'Still cannot use the official API?',
         proxyDescription: 'If region, network, or account limits block official API access, you can consider VAPI as a proxy service.',
         proxyAction: 'Open VAPI',
+        showApiKey: 'Show API Key',
+        hideApiKey: 'Hide API Key',
         save: 'Save settings',
         reset: 'Reset defaults',
         configured: 'Configured',
@@ -168,6 +173,7 @@ const Header: React.FC = () => {
             onClick={() => {
               const next = loadAPISettings();
               setDraft(next);
+              setIsApiKeyVisible(false);
               setIsSettingsOpen(true);
             }}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-xs font-bold border ${
@@ -325,13 +331,24 @@ const Header: React.FC = () => {
 
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{activeProviderLabel} {copy.apiKey}</span>
-                <input
-                  type="password"
-                  value={activeDraft.apiKey}
-                  onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
-                  placeholder={copy.apiKeyPlaceholder}
-                  className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type={isApiKeyVisible ? "text" : "password"}
+                    value={activeDraft.apiKey}
+                    onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
+                    placeholder={copy.apiKeyPlaceholder}
+                    className="w-full rounded-xl border-2 border-stone-200 bg-stone-50 p-3 pr-12 text-sm font-bold text-stone-800 outline-none focus:border-orange-400 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsApiKeyVisible(prev => !prev)}
+                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-orange-50 hover:text-orange-600"
+                    aria-label={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
+                    title={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
+                  >
+                    {isApiKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
               </label>
 
               <label className="block space-y-1.5">

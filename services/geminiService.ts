@@ -187,8 +187,11 @@ const generateSingleImage = async (
   request: StickerRequest, 
   styleModifier: string
 ): Promise<string> => {
-  const { prompt, model, aspectRatio, resolution, textConfig, backgroundConfig, useThreeViews, useStickerCollection, stickerCollectionCount, useStickerBorder, useFacialFeatures, referenceImage } = request;
-  const stickerCollectionItemCount = Math.max(2, Math.min(12, stickerCollectionCount || 6));
+  const { prompt, model, aspectRatio, resolution, textConfig, backgroundConfig, useThreeViews, useStickerCollection, stickerCollectionCount, collectionItemPrompts, useStickerBorder, useFacialFeatures, referenceImage } = request;
+  const requestedCollectionItems = (collectionItemPrompts || [])
+    .map(item => item.trim())
+    .filter(Boolean);
+  const stickerCollectionItemCount = Math.max(2, Math.min(12, stickerCollectionCount || requestedCollectionItems.length || 6));
 
   // Build the text instructions
   let textInstruction = "";
@@ -237,6 +240,13 @@ const generateSingleImage = async (
 
   if (useStickerCollection) {
     viewInstruction = `Sticker Collection Sheet: Generate exactly ${stickerCollectionItemCount} distinct small stickers on one single canvas. They must feel like one coherent series with a unified character language, consistent color palette, matching line weight, and related poses/expressions/objects. Arrange the stickers in a clean grid or loose sticker-sheet layout with generous spacing between each mini sticker, no overlap, and no cropped edges. Each mini sticker should be complete and individually usable.`;
+
+    if (requestedCollectionItems.length > 0) {
+      viewInstruction += ` The mini stickers must follow this exact subject list, one mini sticker per item, in reading order: ${requestedCollectionItems.map((item, index) => `${index + 1}. ${item}`).join("; ")}. Do not omit listed items.`;
+      if (requestedCollectionItems.length < stickerCollectionItemCount) {
+        viewInstruction += ` Add ${stickerCollectionItemCount - requestedCollectionItems.length} additional related mini stickers to reach the requested count.`;
+      }
+    }
 
     if (useStickerBorder) {
       viewInstruction += " Give every mini sticker its own die-cut white border/outline.";
@@ -397,6 +407,7 @@ export const generateStickers = async (
       hasStickerBorder: request.useStickerBorder,
       hasText: request.textConfig.enabled,
       hasReferenceImage: Boolean(request.referenceImage),
+      isThreeViews: request.useThreeViews,
       isStickerCollection: request.useStickerCollection,
       stickerCollectionCount: request.useStickerCollection ? request.stickerCollectionCount : undefined,
       sourceType: 'generated'
@@ -485,6 +496,38 @@ export const generateRelatedPrompts = async (category: string): Promise<string[]
     return [];
   } catch (error) {
     console.error("Prompt generation failed:", error);
+    return [];
+  }
+};
+
+export const generateCollectionItemPrompts = async (
+  theme: string,
+  count: number,
+): Promise<string[]> => {
+  try {
+    const apiSettings = loadAPISettings();
+    const activeProviderSettings = getActiveProviderSettings(apiSettings);
+    const itemCount = Math.max(2, Math.min(12, Math.round(count || 6)));
+    const prompt = `Generate exactly ${itemCount} concise mini sticker subject ideas for one coherent sticker collection.
+Theme: "${theme}".
+Each line should describe one distinct mini sticker in 3-8 words.
+Keep them visually related, concrete, and easy to draw.
+Return ONLY the list, one item per line. No numbering, no bullets, no extra text.`;
+
+    const text = apiSettings.activeProvider === APIProvider.GPT
+      ? await generateOpenAIText(prompt, activeProviderSettings)
+      : (await createGeminiClient(activeProviderSettings).models.generateContent({
+          model: activeProviderSettings.textModel,
+          contents: prompt,
+        })).text || "";
+
+    return text
+      .split('\n')
+      .map(line => line.replace(/^[-*\d.\s]+/, '').trim())
+      .filter(Boolean)
+      .slice(0, itemCount);
+  } catch (error) {
+    console.error("Collection item prompt generation failed:", error);
     return [];
   }
 };

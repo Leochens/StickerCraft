@@ -1,3 +1,5 @@
+import type { CropAdjustments, ImageCropBox } from '../types';
+
 type RGB = { r: number; g: number; b: number };
 
 interface BackgroundCandidate {
@@ -15,6 +17,23 @@ export interface SplitStickerCollectionOptions extends TransparencyRepairOptions
   expectedCount?: number;
 }
 
+export interface GridSplitStickerCollectionOptions extends TransparencyRepairOptions {
+  rows: number;
+  columns: number;
+}
+
+export interface SplitStickerPiece {
+  dataUrl: string;
+  box: ImageCropBox;
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+export interface SplitStickerCollectionResult {
+  sourceDataUrl: string;
+  pieces: SplitStickerPiece[];
+}
+
 interface CanvasSnapshot {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
@@ -29,6 +48,10 @@ interface ComponentBox {
   maxX: number;
   maxY: number;
   area: number;
+}
+
+interface ComponentCluster extends ComponentBox {
+  pixels: number[];
 }
 
 const NAMED_COLORS: Record<string, RGB> = {
@@ -179,6 +202,48 @@ const getDominantEdgeColors = (
     }));
 };
 
+const hasUsableAlphaBackground = (
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+) => {
+  const totalPixels = width * height;
+  const edgePositions = getEdgePixelPositions(width, height);
+  let transparentPixels = 0;
+  let softAlphaPixels = 0;
+  let transparentEdgePixels = 0;
+  let transparentCorners = 0;
+
+  for (let position = 0; position < totalPixels; position += 1) {
+    const alpha = data[position * 4 + 3];
+    if (alpha <= 12) transparentPixels += 1;
+    if (alpha < 250) softAlphaPixels += 1;
+  }
+
+  edgePositions.forEach((position) => {
+    if (data[position * 4 + 3] <= 12) transparentEdgePixels += 1;
+  });
+
+  [
+    0,
+    width - 1,
+    (height - 1) * width,
+    height * width - 1,
+  ].forEach((position) => {
+    if (data[position * 4 + 3] <= 12) transparentCorners += 1;
+  });
+
+  const transparentRatio = transparentPixels / totalPixels;
+  const softAlphaRatio = softAlphaPixels / totalPixels;
+  const edgeTransparentRatio = transparentEdgePixels / edgePositions.length;
+
+  return (
+    edgeTransparentRatio >= 0.12 ||
+    (transparentCorners >= 2 && transparentRatio >= 0.01) ||
+    (edgeTransparentRatio >= 0.04 && softAlphaRatio >= 0.08)
+  );
+};
+
 const getBackgroundCandidates = (
   data: Uint8ClampedArray,
   width: number,
@@ -208,6 +273,11 @@ export const repairStickerTransparency = async (
 ): Promise<string> => {
   const { canvas, ctx, imageData, width, height } = await loadImageSnapshot(dataUrl);
   const { data } = imageData;
+
+  if (hasUsableAlphaBackground(data, width, height)) {
+    return dataUrl;
+  }
+
   const candidates = getBackgroundCandidates(data, width, height, options);
   const visited = new Uint8Array(width * height);
   const queue = new Int32Array(width * height);
@@ -343,6 +413,108 @@ const findOpaqueComponents = (snapshot: CanvasSnapshot): ComponentBox[] => {
   return components;
 };
 
+const findOpaqueComponentsInRegion = (
+  snapshot: CanvasSnapshot,
+  region: Pick<ComponentBox, "minX" | "minY" | "maxX" | "maxY">,
+): ComponentCluster[] => {
+  const { imageData, width, height } = snapshot;
+  const { data } = imageData;
+  const minXBound = clamp(Math.round(region.minX), 0, width - 1);
+  const maxXBound = clamp(Math.round(region.maxX), minXBound, width - 1);
+  const minYBound = clamp(Math.round(region.minY), 0, height - 1);
+  const maxYBound = clamp(Math.round(region.maxY), minYBound, height - 1);
+  const visited = new Uint8Array(width * height);
+  const queue = new Int32Array(width * height);
+  const minArea = Math.max(24, Math.floor((maxXBound - minXBound + 1) * (maxYBound - minYBound + 1) * 0.0003));
+  const components: ComponentCluster[] = [];
+  const isOpaque = (position: number) => data[position * 4 + 3] > 24;
+  const isInsideRegion = (position: number) => {
+    const x = position % width;
+    const y = Math.floor(position / width);
+    return x >= minXBound && x <= maxXBound && y >= minYBound && y <= maxYBound;
+  };
+
+  for (let y = minYBound; y <= maxYBound; y += 1) {
+    for (let x = minXBound; x <= maxXBound; x += 1) {
+      const position = y * width + x;
+      if (visited[position] || !isOpaque(position)) continue;
+
+      let head = 0;
+      let tail = 0;
+      let area = 0;
+      let minX = width;
+      let minY = height;
+      let maxX = 0;
+      let maxY = 0;
+      const pixels: number[] = [];
+
+      visited[position] = 1;
+      queue[tail] = position;
+      tail += 1;
+
+      while (head < tail) {
+        const current = queue[head];
+        head += 1;
+
+        const currentX = current % width;
+        const currentY = Math.floor(current / width);
+        area += 1;
+        pixels.push(current);
+        minX = Math.min(minX, currentX);
+        minY = Math.min(minY, currentY);
+        maxX = Math.max(maxX, currentX);
+        maxY = Math.max(maxY, currentY);
+
+        const neighbors = [
+          current - 1,
+          current + 1,
+          current - width,
+          current + width,
+          current - width - 1,
+          current - width + 1,
+          current + width - 1,
+          current + width + 1,
+        ];
+
+        neighbors.forEach((neighbor) => {
+          if (
+            neighbor < 0 ||
+            neighbor >= width * height ||
+            visited[neighbor] ||
+            !isInsideRegion(neighbor) ||
+            !isOpaque(neighbor)
+          ) {
+            return;
+          }
+
+          const nextX = neighbor % width;
+          const nextY = Math.floor(neighbor / width);
+          if (Math.abs(nextX - currentX) > 1 || Math.abs(nextY - currentY) > 1) return;
+
+          visited[neighbor] = 1;
+          queue[tail] = neighbor;
+          tail += 1;
+        });
+      }
+
+      if (area >= minArea) {
+        components.push({ minX, minY, maxX, maxY, area, pixels });
+      }
+    }
+  }
+
+  return components;
+};
+
+const getDominantComponentInRegion = (
+  snapshot: CanvasSnapshot,
+  region: Pick<ComponentBox, "minX" | "minY" | "maxX" | "maxY">,
+) => {
+  const components = findOpaqueComponentsInRegion(snapshot, region);
+  if (components.length === 0) return undefined;
+  return components.sort((a, b) => b.area - a.area)[0];
+};
+
 const boxesOverlapWithGap = (a: ComponentBox, b: ComponentBox, gap: number) => (
   a.minX - gap <= b.maxX &&
   a.maxX + gap >= b.minX &&
@@ -395,10 +567,26 @@ const sortBoxesReadingOrder = (boxes: ComponentBox[]) => {
 };
 
 const cropBox = (snapshot: CanvasSnapshot, box: ComponentBox, padding: number) => {
-  const x = clamp(box.minX - padding, 0, snapshot.width - 1);
-  const y = clamp(box.minY - padding, 0, snapshot.height - 1);
-  const right = clamp(box.maxX + padding, 0, snapshot.width - 1);
-  const bottom = clamp(box.maxY + padding, 0, snapshot.height - 1);
+  const normalizedBox = normalizeCropBox(snapshot, box, padding);
+  return cropSnapshotToDataUrl(snapshot, normalizedBox);
+};
+
+const normalizeCropBox = (
+  snapshot: CanvasSnapshot,
+  box: Pick<ComponentBox, "minX" | "minY" | "maxX" | "maxY">,
+  padding = 0,
+): ImageCropBox => ({
+  minX: Math.round(clamp(box.minX - padding, 0, snapshot.width - 1)),
+  minY: Math.round(clamp(box.minY - padding, 0, snapshot.height - 1)),
+  maxX: Math.round(clamp(box.maxX + padding, 0, snapshot.width - 1)),
+  maxY: Math.round(clamp(box.maxY + padding, 0, snapshot.height - 1)),
+});
+
+const cropSnapshotToDataUrl = (snapshot: CanvasSnapshot, box: ImageCropBox) => {
+  const x = clamp(Math.min(box.minX, box.maxX), 0, snapshot.width - 1);
+  const y = clamp(Math.min(box.minY, box.maxY), 0, snapshot.height - 1);
+  const right = clamp(Math.max(box.minX, box.maxX), x, snapshot.width - 1);
+  const bottom = clamp(Math.max(box.minY, box.maxY), y, snapshot.height - 1);
   const width = Math.max(1, right - x + 1);
   const height = Math.max(1, bottom - y + 1);
   const output = document.createElement("canvas");
@@ -411,6 +599,63 @@ const cropBox = (snapshot: CanvasSnapshot, box: ComponentBox, padding: number) =
   outputCtx.drawImage(snapshot.canvas, x, y, width, height, 0, 0, width, height);
 
   return output.toDataURL("image/png");
+};
+
+const cropSnapshotComponentToDataUrl = (
+  snapshot: CanvasSnapshot,
+  box: ImageCropBox,
+  componentPixels: number[],
+) => {
+  const x = clamp(Math.min(box.minX, box.maxX), 0, snapshot.width - 1);
+  const y = clamp(Math.min(box.minY, box.maxY), 0, snapshot.height - 1);
+  const right = clamp(Math.max(box.minX, box.maxX), x, snapshot.width - 1);
+  const bottom = clamp(Math.max(box.minY, box.maxY), y, snapshot.height - 1);
+  const width = Math.max(1, right - x + 1);
+  const height = Math.max(1, bottom - y + 1);
+  const output = document.createElement("canvas");
+  const outputCtx = output.getContext("2d", { willReadFrequently: true });
+
+  output.width = width;
+  output.height = height;
+
+  if (!outputCtx) return cropSnapshotToDataUrl(snapshot, box);
+  outputCtx.drawImage(snapshot.canvas, x, y, width, height, 0, 0, width, height);
+
+  const outputImageData = outputCtx.getImageData(0, 0, width, height);
+  const allowedPixels = new Uint8Array(width * height);
+
+  componentPixels.forEach((position) => {
+    const sourceX = position % snapshot.width;
+    const sourceY = Math.floor(position / snapshot.width);
+    if (sourceX < x || sourceX > right || sourceY < y || sourceY > bottom) return;
+    allowedPixels[(sourceY - y) * width + (sourceX - x)] = 1;
+  });
+
+  for (let position = 0; position < width * height; position += 1) {
+    if (allowedPixels[position]) continue;
+    outputImageData.data[position * 4 + 3] = 0;
+  }
+
+  outputCtx.putImageData(outputImageData, 0, 0);
+  return output.toDataURL("image/png");
+};
+
+const createSplitPiece = (snapshot: CanvasSnapshot, box: ComponentBox): SplitStickerPiece => {
+  const dominantComponent = getDominantComponentInRegion(snapshot, box);
+  const dominantBox = dominantComponent || box;
+  const boxWidth = dominantBox.maxX - dominantBox.minX + 1;
+  const boxHeight = dominantBox.maxY - dominantBox.minY + 1;
+  const padding = Math.max(10, Math.round(Math.max(boxWidth, boxHeight) * 0.1));
+  const cropBox = normalizeCropBox(snapshot, dominantBox, padding);
+
+  return {
+    dataUrl: dominantComponent
+      ? cropSnapshotComponentToDataUrl(snapshot, cropBox, dominantComponent.pixels)
+      : cropSnapshotToDataUrl(snapshot, cropBox),
+    box: cropBox,
+    sourceWidth: snapshot.width,
+    sourceHeight: snapshot.height,
+  };
 };
 
 const boxGap = (a: ComponentBox, b: ComponentBox) => {
@@ -570,34 +815,109 @@ const splitByTransparentGutters = (snapshot: CanvasSnapshot, expectedCount: numb
   return boxes;
 };
 
-export const splitStickerCollection = async (
+export const splitStickerCollectionDetailed = async (
   dataUrl: string,
   options: SplitStickerCollectionOptions = {},
-): Promise<string[]> => {
+): Promise<SplitStickerCollectionResult> => {
   const repairedDataUrl = await repairStickerTransparency(dataUrl, options);
   const snapshot = await loadImageSnapshot(repairedDataUrl);
   const expectedCount = options.expectedCount ? Math.max(2, Math.min(12, options.expectedCount)) : undefined;
   const imageArea = snapshot.width * snapshot.height;
   const mergeGap = Math.max(18, Math.round(Math.min(snapshot.width, snapshot.height) * 0.045));
   const minBoxArea = Math.max(256, imageArea * 0.0012);
-  let boxes = mergeBoxes(findOpaqueComponents(snapshot), mergeGap)
+  const componentBoxes = mergeBoxes(findOpaqueComponents(snapshot), mergeGap)
     .filter(box => (box.maxX - box.minX + 1) * (box.maxY - box.minY + 1) >= minBoxArea);
+  let boxes = expectedCount ? splitByTransparentGutters(snapshot, expectedCount) : componentBoxes;
+
+  if (expectedCount && boxes.length === 0) {
+    boxes = componentBoxes;
+  }
 
   if (expectedCount && boxes.length > expectedCount) {
     boxes = mergeClosestBoxesUntilCount(boxes, expectedCount);
   }
 
-  if (boxes.length <= 1 && expectedCount) {
-    const gutterBoxes = splitByTransparentGutters(snapshot, expectedCount);
-    if (gutterBoxes.length > 1) {
-      boxes = gutterBoxes;
+  if (!expectedCount && boxes.length <= 1) {
+    const gutterBoxes = splitByTransparentGutters(snapshot, 6);
+    if (gutterBoxes.length > boxes.length) boxes = gutterBoxes;
+  }
+
+  return {
+    sourceDataUrl: repairedDataUrl,
+    pieces: sortBoxesReadingOrder(boxes).map((box) => createSplitPiece(snapshot, box)),
+  };
+};
+
+export const splitStickerCollectionByGridDetailed = async (
+  dataUrl: string,
+  options: GridSplitStickerCollectionOptions,
+): Promise<SplitStickerCollectionResult> => {
+  const repairedDataUrl = await repairStickerTransparency(dataUrl, options);
+  const snapshot = await loadImageSnapshot(repairedDataUrl);
+  const rows = Math.max(1, Math.min(6, Math.round(options.rows || 1)));
+  const columns = Math.max(1, Math.min(6, Math.round(options.columns || 1)));
+  const minArea = Math.max(96, (snapshot.width * snapshot.height) / (rows * columns) * 0.004);
+  const boxes: ComponentBox[] = [];
+
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      const minX = Math.round((snapshot.width * column) / columns);
+      const maxX = Math.round((snapshot.width * (column + 1)) / columns) - 1;
+      const minY = Math.round((snapshot.height * row) / rows);
+      const maxY = Math.round((snapshot.height * (row + 1)) / rows) - 1;
+      const box = getOpaqueBoundsInRegion(snapshot, {
+        minX: clamp(minX, 0, snapshot.width - 1),
+        minY: clamp(minY, 0, snapshot.height - 1),
+        maxX: clamp(maxX, 0, snapshot.width - 1),
+        maxY: clamp(maxY, 0, snapshot.height - 1),
+      });
+
+      if (box && box.area >= minArea) {
+        boxes.push(box);
+      }
     }
   }
 
-  return sortBoxesReadingOrder(boxes).map((box) => {
-    const boxWidth = box.maxX - box.minX + 1;
-    const boxHeight = box.maxY - box.minY + 1;
-    const padding = Math.max(10, Math.round(Math.max(boxWidth, boxHeight) * 0.1));
-    return cropBox(snapshot, box, padding);
-  });
+  return {
+    sourceDataUrl: repairedDataUrl,
+    pieces: boxes.map((box) => createSplitPiece(snapshot, box)),
+  };
+};
+
+export const recropStickerFromSource = async (
+  sourceDataUrl: string,
+  baseBox: ImageCropBox,
+  adjustments: CropAdjustments,
+): Promise<string> => {
+  const snapshot = await loadImageSnapshot(sourceDataUrl);
+  const boxWidth = Math.max(1, baseBox.maxX - baseBox.minX + 1);
+  const boxHeight = Math.max(1, baseBox.maxY - baseBox.minY + 1);
+  const nextBox: ImageCropBox = {
+    minX: Math.round(baseBox.minX + boxWidth * (adjustments.left / 100)),
+    maxX: Math.round(baseBox.maxX - boxWidth * (adjustments.right / 100)),
+    minY: Math.round(baseBox.minY + boxHeight * (adjustments.top / 100)),
+    maxY: Math.round(baseBox.maxY - boxHeight * (adjustments.bottom / 100)),
+  };
+
+  const minDimension = 8;
+  if (nextBox.maxX - nextBox.minX + 1 < minDimension) {
+    const centerX = Math.round((nextBox.minX + nextBox.maxX) / 2);
+    nextBox.minX = centerX - Math.floor(minDimension / 2);
+    nextBox.maxX = nextBox.minX + minDimension - 1;
+  }
+  if (nextBox.maxY - nextBox.minY + 1 < minDimension) {
+    const centerY = Math.round((nextBox.minY + nextBox.maxY) / 2);
+    nextBox.minY = centerY - Math.floor(minDimension / 2);
+    nextBox.maxY = nextBox.minY + minDimension - 1;
+  }
+
+  return cropSnapshotToDataUrl(snapshot, normalizeCropBox(snapshot, nextBox));
+};
+
+export const splitStickerCollection = async (
+  dataUrl: string,
+  options: SplitStickerCollectionOptions = {},
+): Promise<string[]> => {
+  const result = await splitStickerCollectionDetailed(dataUrl, options);
+  return result.pieces.map((piece) => piece.dataUrl);
 };
