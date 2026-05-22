@@ -413,28 +413,161 @@ const cropBox = (snapshot: CanvasSnapshot, box: ComponentBox, padding: number) =
   return output.toDataURL("image/png");
 };
 
-const splitByGrid = (snapshot: CanvasSnapshot, expectedCount: number) => {
+const boxGap = (a: ComponentBox, b: ComponentBox) => {
+  const horizontalGap = Math.max(0, Math.max(a.minX, b.minX) - Math.min(a.maxX, b.maxX));
+  const verticalGap = Math.max(0, Math.max(a.minY, b.minY) - Math.min(a.maxY, b.maxY));
+  return Math.hypot(horizontalGap, verticalGap);
+};
+
+const mergeClosestBoxesUntilCount = (boxes: ComponentBox[], targetCount: number) => {
+  const merged = [...boxes];
+
+  while (merged.length > targetCount) {
+    let bestA = 0;
+    let bestB = 1;
+    let bestGap = Number.POSITIVE_INFINITY;
+
+    for (let i = 0; i < merged.length; i += 1) {
+      for (let j = i + 1; j < merged.length; j += 1) {
+        const gap = boxGap(merged[i], merged[j]);
+        if (gap < bestGap) {
+          bestGap = gap;
+          bestA = i;
+          bestB = j;
+        }
+      }
+    }
+
+    merged[bestA] = {
+      minX: Math.min(merged[bestA].minX, merged[bestB].minX),
+      minY: Math.min(merged[bestA].minY, merged[bestB].minY),
+      maxX: Math.max(merged[bestA].maxX, merged[bestB].maxX),
+      maxY: Math.max(merged[bestA].maxY, merged[bestB].maxY),
+      area: merged[bestA].area + merged[bestB].area,
+    };
+    merged.splice(bestB, 1);
+  }
+
+  return merged;
+};
+
+const getOpaqueBoundsInRegion = (
+  snapshot: CanvasSnapshot,
+  region: Pick<ComponentBox, "minX" | "minY" | "maxX" | "maxY">,
+): ComponentBox | undefined => {
+  const { data } = snapshot.imageData;
+  let minX = snapshot.width;
+  let minY = snapshot.height;
+  let maxX = 0;
+  let maxY = 0;
+  let area = 0;
+
+  for (let y = region.minY; y <= region.maxY; y += 1) {
+    for (let x = region.minX; x <= region.maxX; x += 1) {
+      const idx = (y * snapshot.width + x) * 4;
+      if (data[idx + 3] <= 24) continue;
+
+      area += 1;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (area === 0) return undefined;
+  return { minX, minY, maxX, maxY, area };
+};
+
+const getAlphaProjections = (snapshot: CanvasSnapshot) => {
+  const { data } = snapshot.imageData;
+  const columns = new Uint32Array(snapshot.width);
+  const rows = new Uint32Array(snapshot.height);
+
+  for (let y = 0; y < snapshot.height; y += 1) {
+    for (let x = 0; x < snapshot.width; x += 1) {
+      const alpha = data[(y * snapshot.width + x) * 4 + 3];
+      if (alpha <= 24) continue;
+      columns[x] += 1;
+      rows[y] += 1;
+    }
+  }
+
+  return { columns, rows };
+};
+
+const findTransparentValley = (
+  projection: Uint32Array,
+  approximateBoundary: number,
+  searchRadius: number,
+) => {
+  const start = clamp(Math.round(approximateBoundary - searchRadius), 1, projection.length - 2);
+  const end = clamp(Math.round(approximateBoundary + searchRadius), start, projection.length - 2);
+  const windowRadius = Math.max(2, Math.round(projection.length * 0.004));
+  let bestIndex = start;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  for (let index = start; index <= end; index += 1) {
+    let score = 0;
+    for (
+      let sample = Math.max(0, index - windowRadius);
+      sample <= Math.min(projection.length - 1, index + windowRadius);
+      sample += 1
+    ) {
+      score += projection[sample];
+    }
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+};
+
+const splitByTransparentGutters = (snapshot: CanvasSnapshot, expectedCount: number) => {
   const count = Math.max(2, Math.min(12, expectedCount));
   const columns = Math.ceil(Math.sqrt(count));
   const rows = Math.ceil(count / columns);
-  const cellWidth = snapshot.width / columns;
-  const cellHeight = snapshot.height / rows;
-  const inset = Math.round(Math.min(cellWidth, cellHeight) * 0.08);
+  const { columns: columnProjection, rows: rowProjection } = getAlphaProjections(snapshot);
+  const xBoundaries = [0];
+  const yBoundaries = [0];
+
+  for (let column = 1; column < columns; column += 1) {
+    const approximate = (snapshot.width * column) / columns;
+    xBoundaries.push(findTransparentValley(columnProjection, approximate, snapshot.width / columns * 0.42));
+  }
+  xBoundaries.push(snapshot.width - 1);
+
+  for (let row = 1; row < rows; row += 1) {
+    const approximate = (snapshot.height * row) / rows;
+    yBoundaries.push(findTransparentValley(rowProjection, approximate, snapshot.height / rows * 0.42));
+  }
+  yBoundaries.push(snapshot.height - 1);
+
+  const minArea = Math.max(256, snapshot.width * snapshot.height * 0.001);
   const boxes: ComponentBox[] = [];
 
-  for (let index = 0; index < count; index += 1) {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    boxes.push({
-      minX: Math.round(column * cellWidth) + inset,
-      minY: Math.round(row * cellHeight) + inset,
-      maxX: Math.round((column + 1) * cellWidth) - inset,
-      maxY: Math.round((row + 1) * cellHeight) - inset,
-      area: cellWidth * cellHeight,
-    });
+  for (let row = 0; row < rows; row += 1) {
+    for (let column = 0; column < columns; column += 1) {
+      if (boxes.length >= count) break;
+
+      const region = {
+        minX: xBoundaries[column],
+        maxX: xBoundaries[column + 1],
+        minY: yBoundaries[row],
+        maxY: yBoundaries[row + 1],
+      };
+      const box = getOpaqueBoundsInRegion(snapshot, region);
+
+      if (box && box.area >= minArea) {
+        boxes.push(box);
+      }
+    }
   }
 
-  return boxes.map(box => cropBox(snapshot, box, 0));
+  return boxes;
 };
 
 export const splitStickerCollection = async (
@@ -451,13 +584,14 @@ export const splitStickerCollection = async (
     .filter(box => (box.maxX - box.minX + 1) * (box.maxY - box.minY + 1) >= minBoxArea);
 
   if (expectedCount && boxes.length > expectedCount) {
-    boxes = [...boxes]
-      .sort((a, b) => b.area - a.area)
-      .slice(0, expectedCount);
+    boxes = mergeClosestBoxesUntilCount(boxes, expectedCount);
   }
 
   if (boxes.length <= 1 && expectedCount) {
-    return splitByGrid(snapshot, expectedCount);
+    const gutterBoxes = splitByTransparentGutters(snapshot, expectedCount);
+    if (gutterBoxes.length > 1) {
+      boxes = gutterBoxes;
+    }
   }
 
   return sortBoxesReadingOrder(boxes).map((box) => {
