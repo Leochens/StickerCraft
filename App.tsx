@@ -4,6 +4,7 @@ import ControlPanel from './components/ControlPanel';
 import GeneratedGrid from './components/GeneratedGrid';
 import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, ImageResolution } from './types';
 import { generateStickers } from './services/geminiService';
+import { repairStickerTransparency, splitStickerCollection } from './services/imageProcessing';
 import { loadPersistedStickerCraftData, saveCustomStyles, saveGeneratedImages } from './services/storageService';
 import { STICKER_STYLES } from './constants';
 import { X, Download, BadgeCheck, FileImage, Layers3, ShieldCheck } from 'lucide-react';
@@ -15,6 +16,8 @@ const App: React.FC = () => {
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(new Set());
+  const [transparencyRepairIds, setTransparencyRepairIds] = useState<Set<string>>(new Set());
+  const [splittingCollectionIds, setSplittingCollectionIds] = useState<Set<string>>(new Set());
   const [pendingQuantity, setPendingQuantity] = useState(0); // Track how many images are being generated
   const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +119,84 @@ const App: React.FC = () => {
     } finally {
       setIsGenerating(false);
       setPendingQuantity(0);
+    }
+  };
+
+  const handleRepairTransparency = async (image: GeneratedImage) => {
+    setError(null);
+    setTransparencyRepairIds(prev => new Set(prev).add(image.id));
+
+    try {
+      const repairedDataUrl = await repairStickerTransparency(image.dataUrl, {
+        backgroundColor: image.backgroundColor,
+        hasStickerBorder: image.hasStickerBorder,
+      });
+
+      setImages(prev => prev.map(img =>
+        img.id === image.id
+          ? {
+              ...img,
+              dataUrl: repairedDataUrl,
+              backgroundRemoved: true,
+              backgroundColor: undefined,
+              createdAt: Date.now(),
+            }
+          : img
+      ));
+    } catch (err: any) {
+      setError(`Transparency repair failed: ${err.message || 'Please try again.'}`);
+    } finally {
+      setTransparencyRepairIds(prev => {
+        const next = new Set(prev);
+        next.delete(image.id);
+        return next;
+      });
+    }
+  };
+
+  const handleSplitCollection = async (image: GeneratedImage) => {
+    setError(null);
+    setSplittingCollectionIds(prev => new Set(prev).add(image.id));
+
+    try {
+      const pieces = await splitStickerCollection(image.dataUrl, {
+        backgroundColor: image.backgroundColor,
+        expectedCount: image.stickerCollectionCount || 6,
+        hasStickerBorder: image.hasStickerBorder,
+      });
+
+      if (pieces.length === 0) {
+        throw new Error('No separated stickers were detected.');
+      }
+
+      const now = Date.now();
+      const splitImages: GeneratedImage[] = pieces.map((dataUrl, index) => ({
+        ...image,
+        id: crypto.randomUUID(),
+        dataUrl,
+        createdAt: now + index,
+        backgroundRemoved: true,
+        backgroundColor: undefined,
+        isStickerCollection: false,
+        stickerCollectionCount: undefined,
+      }));
+
+      setImages(prev => {
+        const collectionIndex = prev.findIndex(img => img.id === image.id);
+        if (collectionIndex < 0) return [...splitImages, ...prev];
+
+        const next = [...prev];
+        next.splice(collectionIndex + 1, 0, ...splitImages);
+        return next;
+      });
+    } catch (err: any) {
+      setError(`Sticker split failed: ${err.message || 'Please try again.'}`);
+    } finally {
+      setSplittingCollectionIds(prev => {
+        const next = new Set(prev);
+        next.delete(image.id);
+        return next;
+      });
     }
   };
 
@@ -316,7 +397,11 @@ const App: React.FC = () => {
                   onPreview={setPreviewImage} 
                   onDelete={handleDeleteImage}
                   onRegenerate={handleRegenerate}
+                  onRepairTransparency={handleRepairTransparency}
+                  onSplitCollection={handleSplitCollection}
                   regeneratingIds={regeneratingIds}
+                  transparencyRepairIds={transparencyRepairIds}
+                  splittingCollectionIds={splittingCollectionIds}
                   onUploadImage={handleImageUpload}
                 />
              </div>

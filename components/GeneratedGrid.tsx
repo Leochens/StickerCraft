@@ -13,7 +13,11 @@ interface GeneratedGridProps {
   onPreview: (image: GeneratedImage) => void;
   onDelete?: (id: string) => void;
   onRegenerate?: (image: GeneratedImage) => void;
+  onRepairTransparency?: (image: GeneratedImage) => void;
+  onSplitCollection?: (image: GeneratedImage) => void;
   regeneratingIds?: Set<string>;
+  transparencyRepairIds?: Set<string>;
+  splittingCollectionIds?: Set<string>;
   onUploadImage?: (dataUrl: string, prompt: string, styleName: string) => void;
 }
 
@@ -24,7 +28,11 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
   onPreview,
   onDelete,
   onRegenerate,
+  onRepairTransparency,
+  onSplitCollection,
   regeneratingIds = new Set(),
+  transparencyRepairIds = new Set(),
+  splittingCollectionIds = new Set(),
   onUploadImage
 }) => {
   const { t, language } = useLanguage();
@@ -347,10 +355,14 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             onPreview={onPreview}
             onDelete={onDelete}
             onRegenerate={onRegenerate}
+            onRepairTransparency={onRepairTransparency}
+            onSplitCollection={onSplitCollection}
             isSelected={selectedIds.has(img.id)}
             onToggleSelection={toggleSelection}
             selectionMode={selectedIds.size > 0}
             isRegenerating={regeneratingIds.has(img.id)}
+            isRepairingTransparency={transparencyRepairIds.has(img.id)}
+            isSplittingCollection={splittingCollectionIds.has(img.id)}
           />
         ))}
         

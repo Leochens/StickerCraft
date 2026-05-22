@@ -7,106 +7,7 @@ import {
   loadAPISettings,
   modelSupportsImageSize,
 } from "./apiConfig";
-
-/**
- * Removes the background from an image using a flood-fill algorithm from the corners.
- * @param dataUrl The original image data URL
- * @param targetColorRGB The background color to remove {r, g, b}
- * @param tolerance Color matching tolerance (0-255)
- */
-const removeBackground = async (
-  dataUrl: string, 
-  targetColorRGB: { r: number, g: number, b: number }, 
-  tolerance: number = 20
-): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "Anonymous";
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(dataUrl);
-        return;
-      }
-      
-      ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const width = canvas.width;
-      const height = canvas.height;
-
-      // Helper to match color within tolerance
-      const matchesTarget = (idx: number) => {
-        const r = data[idx];
-        const g = data[idx + 1];
-        const b = data[idx + 2];
-        return (
-          Math.abs(r - targetColorRGB.r) <= tolerance &&
-          Math.abs(g - targetColorRGB.g) <= tolerance &&
-          Math.abs(b - targetColorRGB.b) <= tolerance
-        );
-      };
-
-      // Flood fill (BFS) from all 4 corners to find background
-      // This ensures we only remove background connected to the edges, preserving internal colors
-      const queue: [number, number][] = [
-        [0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]
-      ];
-      
-      const visited = new Set<string>();
-      const getPosKey = (x: number, y: number) => `${x},${y}`;
-
-      // Initialize queue with corners if they match target
-      const activeQueue: number[] = []; // store as index to avoid object creation overhead
-      
-      // Check corners
-      queue.forEach(([x, y]) => {
-        const idx = (y * width + x) * 4;
-        if (matchesTarget(idx)) {
-          activeQueue.push(x, y);
-          visited.add(getPosKey(x, y));
-        }
-      });
-
-      let head = 0;
-      while (head < activeQueue.length) {
-        const x = activeQueue[head++];
-        const y = activeQueue[head++];
-        
-        const idx = (y * width + x) * 4;
-        
-        // Set alpha to 0 (Transparent)
-        data[idx + 3] = 0;
-
-        // Check neighbors
-        const neighbors = [
-          [x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]
-        ];
-
-        for (const [nx, ny] of neighbors) {
-          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            const key = getPosKey(nx, ny);
-            if (!visited.has(key)) {
-              const nIdx = (ny * width + nx) * 4;
-              if (matchesTarget(nIdx)) {
-                visited.add(key);
-                activeQueue.push(nx, ny);
-              }
-            }
-          }
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = (e) => reject(e);
-    img.src = dataUrl;
-  });
-};
+import { repairStickerTransparency } from "./imageProcessing";
 
 const getDataUrlMimeType = (dataUrl: string) => (
   dataUrl.match(/^data:([^;]+);base64,/)?.[1] || "image/png"
@@ -314,7 +215,6 @@ const generateSingleImage = async (
   // skip transparency post-processing entirely.
   let promptBgColor = "white";
   let shouldRemoveBg = false;
-  let removalTargetColor = { r: 255, g: 255, b: 255 }; // Default remove white
 
   if (backgroundConfig?.enabled) {
     promptBgColor = backgroundConfig.color || "white";
@@ -324,11 +224,9 @@ const generateSingleImage = async (
         // STRATEGY: If generating a white sticker border, use a BLACK background 
         // to maximize contrast for the removal algorithm.
         promptBgColor = "black";
-        removalTargetColor = { r: 0, g: 0, b: 0 };
     } else {
         // If no border, white background is standard.
         promptBgColor = "white";
-        removalTargetColor = { r: 255, g: 255, b: 255 };
     }
   }
 
@@ -388,8 +286,11 @@ const generateSingleImage = async (
 
       if (shouldRemoveBg) {
         try {
-            const tolerance = promptBgColor === 'black' ? 30 : 15;
-            return await removeBackground(rawBase64, removalTargetColor, tolerance);
+            return await repairStickerTransparency(rawBase64, {
+              backgroundColor: promptBgColor,
+              hasStickerBorder: useStickerBorder,
+              tolerance: promptBgColor === 'black' ? 50 : 44,
+            });
         } catch (bgError) {
             console.warn("Background removal failed, returning original.", bgError);
             return rawBase64;
@@ -445,10 +346,11 @@ const generateSingleImage = async (
           // Post-Processing: Remove background if needed
           if (shouldRemoveBg) {
             try {
-                // Use a slightly higher tolerance for Black removal (often has compression artifacts)
-                // Use strict tolerance for White
-                const tolerance = promptBgColor === 'black' ? 30 : 15;
-                return await removeBackground(rawBase64, removalTargetColor, tolerance);
+                return await repairStickerTransparency(rawBase64, {
+                  backgroundColor: promptBgColor,
+                  hasStickerBorder: useStickerBorder,
+                  tolerance: promptBgColor === 'black' ? 50 : 44,
+                });
             } catch (bgError) {
                 console.warn("Background removal failed, returning original.", bgError);
                 return rawBase64;

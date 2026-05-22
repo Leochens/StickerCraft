@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Maximize2, Check, RefreshCw, Trash2 } from 'lucide-react';
+import { Download, Maximize2, Check, RefreshCw, Scissors, Sparkles, Trash2 } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -10,8 +10,12 @@ interface StickerCardProps {
   onToggleSelection?: (id: string) => void;
   selectionMode?: boolean;
   onRegenerate?: (image: GeneratedImage) => void;
+  onRepairTransparency?: (image: GeneratedImage) => void;
+  onSplitCollection?: (image: GeneratedImage) => void;
   onDelete?: (id: string) => void;
   isRegenerating?: boolean;
+  isRepairingTransparency?: boolean;
+  isSplittingCollection?: boolean;
 }
 
 const StickerCard: React.FC<StickerCardProps> = ({ 
@@ -21,10 +25,15 @@ const StickerCard: React.FC<StickerCardProps> = ({
   onToggleSelection,
   selectionMode = false,
   onRegenerate,
+  onRepairTransparency,
+  onSplitCollection,
   onDelete,
-  isRegenerating = false
+  isRegenerating = false,
+  isRepairingTransparency = false,
+  isSplittingCollection = false
 }) => {
   const { t, language } = useLanguage();
+  const isBusy = isRegenerating || isRepairingTransparency || isSplittingCollection;
 
   const copy = language === 'zh'
     ? {
@@ -35,6 +44,11 @@ const StickerCard: React.FC<StickerCardProps> = ({
         noBorder: '无白边',
         text: '文字',
         reference: '参考图',
+        repairTransparent: '修复透明',
+        splitCollection: '一键切分',
+        regenerating: '重绘中...',
+        repairing: '修复中...',
+        splitting: '切分中...',
       }
     : {
         transparent: 'Transparent PNG',
@@ -44,7 +58,18 @@ const StickerCard: React.FC<StickerCardProps> = ({
         noBorder: 'No border',
         text: 'Text',
         reference: 'Reference',
+        repairTransparent: 'Fix transparency',
+        splitCollection: 'Split stickers',
+        regenerating: 'Remixing...',
+        repairing: 'Repairing...',
+        splitting: 'Splitting...',
       };
+
+  const busyLabel = isSplittingCollection
+    ? copy.splitting
+    : isRepairingTransparency
+      ? copy.repairing
+      : copy.regenerating;
 
   const assetBadges = [
     image.sourceType === 'uploaded'
@@ -90,11 +115,11 @@ const StickerCard: React.FC<StickerCardProps> = ({
       onClick={handleCardClick}
     >
       {/* Loading Overlay for Regeneration */}
-      {isRegenerating && (
+      {isBusy && (
         <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-sm flex items-center justify-center">
              <div className="flex flex-col items-center gap-2">
                  <div className="w-8 h-8 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin"></div>
-                 <span className="text-xs font-bold text-orange-600 animate-pulse">Remixing...</span>
+                 <span className="text-xs font-bold text-orange-600 animate-pulse">{busyLabel}</span>
              </div>
         </div>
       )}
@@ -125,7 +150,7 @@ const StickerCard: React.FC<StickerCardProps> = ({
         />
         
         {/* Overlay Actions */}
-        {!selectionMode && !isRegenerating && (
+        {!selectionMode && !isBusy && (
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-300 flex flex-col justify-between p-3 opacity-0 group-hover:opacity-100 pointer-events-none">
              {/* Top Right Actions: Delete */}
              <div className="flex justify-end pointer-events-auto">
@@ -140,34 +165,58 @@ const StickerCard: React.FC<StickerCardProps> = ({
                  )}
              </div>
 
-             {/* Bottom Right Actions: Download, Regenerate, Expand */}
-             <div className="flex gap-2 justify-end pointer-events-auto scale-90 translate-y-2 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-300">
-               {onRegenerate && (
-                   <button 
-                     onClick={(e) => { e.stopPropagation(); onRegenerate(image); }}
-                     className="bg-white text-stone-700 p-2 rounded-full shadow-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                     title={t('action_regenerate')}
+             {/* Bottom Actions: Repair/Split plus compact utility buttons */}
+             <div className="pointer-events-auto scale-90 translate-y-2 group-hover:scale-100 group-hover:translate-y-0 transition-all duration-300 space-y-2">
+               <div className="flex flex-wrap justify-end gap-2">
+                 {onRepairTransparency && (
+                   <button
+                     onClick={(e) => { e.stopPropagation(); onRepairTransparency(image); }}
+                     className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[11px] font-black text-emerald-700 shadow-lg hover:bg-emerald-50 hover:text-emerald-900 transition-colors"
+                     title={copy.repairTransparent}
                    >
-                     <RefreshCw size={16} />
+                     <Sparkles size={14} />
+                     {copy.repairTransparent}
                    </button>
-               )}
-               <button 
-                 onClick={handleDownload}
-                 className="bg-white text-stone-700 p-2 rounded-full shadow-lg hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                 title="Download"
-               >
-                 <Download size={16} />
-               </button>
-               <button 
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   onPreview(image);
-                 }}
-                 className="bg-white text-stone-700 p-2 rounded-full shadow-lg hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                 title="Expand"
-               >
-                 <Maximize2 size={16} />
-               </button>
+                 )}
+                 {image.isStickerCollection && onSplitCollection && (
+                   <button
+                     onClick={(e) => { e.stopPropagation(); onSplitCollection(image); }}
+                     className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[11px] font-black text-indigo-700 shadow-lg hover:bg-indigo-50 hover:text-indigo-900 transition-colors"
+                     title={copy.splitCollection}
+                   >
+                     <Scissors size={14} />
+                     {copy.splitCollection}
+                   </button>
+                 )}
+               </div>
+               <div className="flex gap-2 justify-end">
+                 {onRegenerate && (
+                     <button
+                       onClick={(e) => { e.stopPropagation(); onRegenerate(image); }}
+                       className="bg-white text-stone-700 p-2 rounded-full shadow-lg hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                       title={t('action_regenerate')}
+                     >
+                       <RefreshCw size={16} />
+                     </button>
+                 )}
+                 <button
+                   onClick={handleDownload}
+                   className="bg-white text-stone-700 p-2 rounded-full shadow-lg hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                   title="Download"
+                 >
+                   <Download size={16} />
+                 </button>
+                 <button
+                   onClick={(e) => {
+                     e.stopPropagation();
+                     onPreview(image);
+                   }}
+                   className="bg-white text-stone-700 p-2 rounded-full shadow-lg hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                   title="Expand"
+                 >
+                   <Maximize2 size={16} />
+                 </button>
+               </div>
              </div>
           </div>
         )}
