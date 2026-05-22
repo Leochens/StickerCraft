@@ -68,6 +68,8 @@ export interface StickerRequest {
   textConfig: TextConfig;
   backgroundConfig: BackgroundConfig;
   useThreeViews: boolean;
+  useStickerCollection: boolean;
+  stickerCollectionCount: number;
   useStickerBorder: boolean;
   useFacialFeatures: boolean;
   referenceImage?: string; // Base64 data for image-to-image
@@ -84,6 +86,8 @@ export interface GeneratedImage {
   hasStickerBorder?: boolean;
   hasText?: boolean;
   hasReferenceImage?: boolean;
+  isStickerCollection?: boolean;
+  stickerCollectionCount?: number;
   sourceType?: 'generated' | 'uploaded';
 }
 

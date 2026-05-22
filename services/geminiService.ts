@@ -286,7 +286,8 @@ const generateSingleImage = async (
   request: StickerRequest, 
   styleModifier: string
 ): Promise<string> => {
-  const { prompt, model, aspectRatio, resolution, textConfig, backgroundConfig, useThreeViews, useStickerBorder, useFacialFeatures, referenceImage } = request;
+  const { prompt, model, aspectRatio, resolution, textConfig, backgroundConfig, useThreeViews, useStickerCollection, stickerCollectionCount, useStickerBorder, useFacialFeatures, referenceImage } = request;
+  const stickerCollectionItemCount = Math.max(2, Math.min(12, stickerCollectionCount || 6));
 
   // Build the text instructions
   let textInstruction = "";
@@ -335,13 +336,23 @@ const generateSingleImage = async (
 
   // Build View/Border Instruction
   let viewInstruction = "sticker design, high quality vector graphics, centered composition";
-  
-  // Sticker Border Logic
-  if (useStickerBorder) {
-    viewInstruction += ", die-cut sticker with a thick white border/outline surrounding the subject";
+
+  if (useStickerCollection) {
+    viewInstruction = `Sticker Collection Sheet: Generate exactly ${stickerCollectionItemCount} distinct small stickers on one single canvas. They must feel like one coherent series with a unified character language, consistent color palette, matching line weight, and related poses/expressions/objects. Arrange the stickers in a clean grid or loose sticker-sheet layout with generous spacing between each mini sticker, no overlap, and no cropped edges. Each mini sticker should be complete and individually usable.`;
+
+    if (useStickerBorder) {
+      viewInstruction += " Give every mini sticker its own die-cut white border/outline.";
+    } else {
+      viewInstruction += " Keep every mini sticker borderless with no white outline.";
+    }
   } else {
-    // Strong negative constraint for border
-    viewInstruction += ", borderless, strictly NO white outline, NO die-cut border, edge-to-edge design";
+    // Sticker Border Logic
+    if (useStickerBorder) {
+      viewInstruction += ", die-cut sticker with a thick white border/outline surrounding the subject";
+    } else {
+      // Strong negative constraint for border
+      viewInstruction += ", borderless, strictly NO white outline, NO die-cut border, edge-to-edge design";
+    }
   }
 
   // Three Views Logic (Character Sheet)
@@ -484,6 +495,8 @@ export const generateStickers = async (
       hasStickerBorder: request.useStickerBorder,
       hasText: request.textConfig.enabled,
       hasReferenceImage: Boolean(request.referenceImage),
+      isStickerCollection: request.useStickerCollection,
+      stickerCollectionCount: request.useStickerCollection ? request.stickerCollectionCount : undefined,
       sourceType: 'generated'
     }));
   } catch (error) {

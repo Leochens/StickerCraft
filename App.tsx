@@ -142,6 +142,8 @@ const App: React.FC = () => {
               textConfig: { enabled: false, content: '', font: '', hasBorder: false }, // Reset text
               backgroundConfig: { enabled: false, color: 'white' },
               useThreeViews: false,
+              useStickerCollection: Boolean(image.isStickerCollection),
+              stickerCollectionCount: image.stickerCollectionCount || 6,
               useStickerBorder: true,
               useFacialFeatures: true,
               referenceImage: image.dataUrl // KEY: Pass original image as reference
@@ -203,6 +205,7 @@ const App: React.FC = () => {
         uploaded: '上传素材',
         whiteBorder: '白边',
         noBorder: '无白边',
+        collection: '贴纸集合',
         text: '含文字',
         reference: '参考图',
         assetReadiness: '素材状态',
@@ -220,6 +223,7 @@ const App: React.FC = () => {
         uploaded: 'Uploaded asset',
         whiteBorder: 'White border',
         noBorder: 'No border',
+        collection: 'Sticker set',
         text: 'Text',
         reference: 'Reference image',
         assetReadiness: 'Asset readiness',
@@ -248,6 +252,9 @@ const App: React.FC = () => {
 
     if (image.sourceType !== 'uploaded') {
       badges.push(image.hasStickerBorder ? assetCopy.whiteBorder : assetCopy.noBorder);
+    }
+    if (image.isStickerCollection) {
+      badges.push(`${assetCopy.collection}${image.stickerCollectionCount ? ` x${image.stickerCollectionCount}` : ''}`);
     }
     if (image.hasText) badges.push(assetCopy.text);
     if (image.hasReferenceImage) badges.push(assetCopy.reference);

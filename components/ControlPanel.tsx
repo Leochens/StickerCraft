@@ -15,6 +15,8 @@ interface ControlPanelProps {
   onRemoveCustomStyle: (id: string) => void;
 }
 
+type LayoutMode = 'single' | 'threeViews' | 'collection';
+
 const ControlPanel: React.FC<ControlPanelProps> = ({ 
   onGenerate, 
   isGenerating,
@@ -49,7 +51,8 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const [resolution, setResolution] = useState(ImageResolution.RES_1K);
   
   // Advanced Config
-  const [useThreeViews, setUseThreeViews] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('single');
+  const [stickerCollectionCount, setStickerCollectionCount] = useState(6);
   const [useStickerBorder, setUseStickerBorder] = useState(true);
   const [useFacialFeatures, setUseFacialFeatures] = useState(true);
 
@@ -146,7 +149,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         enabled: backgroundEnabled,
         color: backgroundColor
       },
-      useThreeViews,
+      useThreeViews: layoutMode === 'threeViews',
+      useStickerCollection: layoutMode === 'collection',
+      stickerCollectionCount,
       useStickerBorder,
       useFacialFeatures,
       referenceImage: referenceImage || undefined
@@ -708,24 +713,69 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
              />
         </label>
         
-        <label className={`
-            flex items-center justify-between cursor-pointer group p-3 rounded-xl border transition-all
-            ${useThreeViews ? 'border-orange-200 bg-orange-50/50' : 'border-stone-100 hover:border-orange-100'}
-          `}>
-             <div className="flex items-center gap-2">
-                 <LayoutPanelLeft size={16} className={useThreeViews ? 'text-orange-500' : 'text-stone-400'} />
-                 <span className={`text-xs font-bold ${useThreeViews ? 'text-orange-900' : 'text-stone-600'}`}>
-                    {t('config_three_views')}
-                 </span>
-             </div>
-             <input 
-                  type="checkbox" 
-                  checked={useThreeViews}
-                  onChange={(e) => setUseThreeViews(e.target.checked)}
-                  className="w-4 h-4 text-orange-600 rounded focus:ring-orange-500 border-gray-300"
+        <div className="rounded-xl border border-stone-100 p-3">
+          <div className="mb-2 text-[10px] font-bold text-stone-400 uppercase tracking-wider">
+            {t('config_layout_mode')}
+          </div>
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-stone-100 p-1" aria-label={t('config_layout_mode')}>
+            {[
+              { value: 'single' as const, label: t('config_single_sticker'), icon: Sticker },
+              { value: 'threeViews' as const, label: t('config_three_views'), icon: LayoutPanelLeft },
+              { value: 'collection' as const, label: t('config_sticker_collection'), icon: Layers },
+            ].map((option) => {
+              const Icon = option.icon;
+              const isSelected = layoutMode === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setLayoutMode(option.value)}
                   disabled={isGenerating}
-             />
-        </label>
+                  aria-pressed={isSelected}
+                  className={`flex min-h-16 flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold leading-tight transition-all ${
+                    isSelected
+                      ? 'bg-white text-orange-600 shadow-sm'
+                      : 'text-stone-500 hover:text-stone-800'
+                  }`}
+                >
+                  <Icon size={15} />
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {layoutMode === 'collection' && (
+            <div className="px-3 pb-3 animate-fade-in">
+              <p className="mb-2 mt-3 text-[10px] text-stone-400 leading-snug">
+                {t('config_sticker_collection_hint')}
+              </p>
+              <div className="flex items-center justify-between gap-3 rounded-lg bg-white border border-orange-100 p-2">
+                <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                  {t('config_sticker_collection_count')}
+                </span>
+                <div className="flex bg-stone-100 p-1 rounded-lg">
+                  {[4, 6, 9].map((num) => (
+                    <button
+                      key={num}
+                      type="button"
+                      onClick={() => setStickerCollectionCount(num)}
+                      disabled={isGenerating}
+                      className={`w-9 py-1 text-xs font-bold rounded-md transition-all ${
+                        stickerCollectionCount === num
+                          ? 'bg-white text-orange-600 shadow-sm'
+                          : 'text-stone-500 hover:text-stone-700'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Text Toggle Section */}
