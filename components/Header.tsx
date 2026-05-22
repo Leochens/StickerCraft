@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Check, ChevronDown, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
+import { Check, ChevronDown, ExternalLink, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LANGUAGE_OPTIONS } from '../constants';
 import {
@@ -52,6 +52,13 @@ const Header: React.FC = () => {
         endpointHint: 'Gemini 默认使用 Google 官方端点；GPT 默认使用 OpenAI /v1 端点。只有使用中转站时才需要修改。',
         imageModelHint: '当前 API 必须配置一个图片生成模型。GPT 推荐 gpt-image-2，Gemini 推荐 Nano Banana 2。',
         helperHint: '用于风格分析和提示词生成。当前 API 必须配置一个文本模型。',
+        disclaimerTitle: 'API 接入免责声明',
+        disclaimerDescription: '推荐优先使用 Gemini / OpenAI 官方 API 接入。官方 API 的可用性、计费和服务条款以对应官方平台为准。',
+        officialEndpoint: '接入地址',
+        officialAction: '打开官方入口',
+        proxyTitle: '仍然无法使用官方 API？',
+        proxyDescription: '如果因为地区、网络或账号限制无法使用官方 API，再考虑使用 VAPI 来做中转。',
+        proxyAction: '打开 VAPI',
         save: '保存配置',
         reset: '恢复默认',
         configured: '已配置',
@@ -70,6 +77,13 @@ const Header: React.FC = () => {
         endpointHint: 'Gemini uses the official Google endpoint by default. GPT uses the OpenAI /v1 endpoint by default. Change this only for proxy services.',
         imageModelHint: 'The selected API must have an image model. Prefer gpt-image-2 for GPT and Nano Banana 2 for Gemini.',
         helperHint: 'Used for style analysis and prompt generation. The selected API must have a text model.',
+        disclaimerTitle: 'API access disclaimer',
+        disclaimerDescription: 'Prefer the official Gemini / OpenAI APIs first. Availability, billing, and terms are controlled by the official provider.',
+        officialEndpoint: 'Endpoint',
+        officialAction: 'Open official page',
+        proxyTitle: 'Still cannot use the official API?',
+        proxyDescription: 'If region, network, or account limits block official API access, you can consider VAPI as a proxy service.',
+        proxyAction: 'Open VAPI',
         save: 'Save settings',
         reset: 'Reset defaults',
         configured: 'Configured',
@@ -83,6 +97,18 @@ const Header: React.FC = () => {
   const activeProviderLabel = getProviderLabel(draft.activeProvider);
   const activeImageModels = getProviderImageModels(draft.activeProvider);
   const activeTextModels = getProviderTextModels(draft.activeProvider);
+  const officialApiOptions = [
+    {
+      name: 'Gemini',
+      endpoint: getProviderDefaultEndpoint(APIProvider.GEMINI),
+      href: 'https://aistudio.google.com/app/apikey',
+    },
+    {
+      name: 'OpenAI',
+      endpoint: getProviderDefaultEndpoint(APIProvider.GPT),
+      href: 'https://platform.openai.com/api-keys',
+    },
+  ];
 
   const updateProviderDraft = (provider: APIProvider, nextProviderSettings: Partial<ProviderAPISettings>) => {
     setDraft(prev => ({
@@ -124,12 +150,14 @@ const Header: React.FC = () => {
               target="_blank"
               rel="noreferrer"
               aria-label="Visit GuanTou Lab portfolio"
-              className="hidden xl:inline-flex h-11 min-w-[230px] items-center"
+              className="hidden md:inline-flex h-8 w-[136px] flex-shrink-0 items-center"
             >
               <img
-                src={`https://world.guantou.site/badge.svg?theme=light&accent=red&lang=${badgeLanguage}&size=lg`}
+                src={`https://world.guantou.site/badge.svg?theme=light&accent=red&lang=${badgeLanguage}&size=sm`}
                 alt="GuanTou Lab"
-                className="h-11 w-auto"
+                width={136}
+                height={32}
+                className="h-8 w-[136px]"
               />
             </a>
           </div>
@@ -227,6 +255,54 @@ const Header: React.FC = () => {
             </div>
 
             <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
+              <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-3 space-y-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-black text-sky-900">{copy.disclaimerTitle}</p>
+                  <p className="text-xs text-sky-700 leading-relaxed">{copy.disclaimerDescription}</p>
+                </div>
+                <div className="space-y-2">
+                  {officialApiOptions.map((option) => (
+                    <div key={option.name} className="border-t border-sky-100 pt-2 first:border-t-0 first:pt-0">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-xs font-black text-sky-900">{option.name}</p>
+                          <p className="text-[11px] font-bold text-sky-700 break-all">
+                            {copy.officialEndpoint}: {option.endpoint}
+                          </p>
+                        </div>
+                        <a
+                          href={option.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-black text-sky-700 border border-sky-100 shadow-sm hover:bg-sky-100 hover:text-sky-900 transition-colors"
+                        >
+                          {copy.officialAction}
+                          <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-emerald-900">{copy.proxyTitle}</p>
+                    <p className="text-xs text-emerald-700 leading-relaxed">{copy.proxyDescription}</p>
+                  </div>
+                  <a
+                    href="https://api.gpt.ge/register?aff=qMCL"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-black text-emerald-700 border border-emerald-100 shadow-sm hover:bg-emerald-100 hover:text-emerald-900 transition-colors"
+                  >
+                    {copy.proxyAction}
+                    <ExternalLink size={13} />
+                  </a>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.provider}</span>
                 <div className="grid grid-cols-2 gap-2 rounded-xl bg-stone-100 p-1">
