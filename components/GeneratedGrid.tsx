@@ -323,43 +323,6 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
         )}
       </div>
 
-      {images.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black text-emerald-700 uppercase tracking-wide">
-                <BadgeCheck size={15} />
-                {copy.transparentPng}
-              </div>
-              <span className="text-lg font-black text-stone-900">{transparentCount}</span>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-stone-500">{copy.transparentHelp}</p>
-          </div>
-          <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black text-stone-600 uppercase tracking-wide">
-                <Layers3 size={15} />
-                {copy.backgroundKept}
-              </div>
-              <span className="text-lg font-black text-stone-900">{backgroundKeptCount}</span>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-stone-500">{copy.backgroundHelp}</p>
-          </div>
-          <div className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-black text-orange-700 uppercase tracking-wide">
-                <FileCheck2 size={15} />
-                {copy.zipReady}
-              </div>
-              <span className="text-lg font-black text-stone-900">{zipReadyCount}</span>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-stone-500">
-              {selectedIds.size > 0 ? `${selectedIds.size} ${copy.selectedReady}` : `${filteredImages.length} ${copy.visibleReady}`} · {copy.zipHelp}
-            </p>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {/* Placeholder skeletons while generating */}
         {isGenerating && (
