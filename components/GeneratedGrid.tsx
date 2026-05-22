@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { GeneratedImage } from '../types';
 import StickerCard from './StickerCard';
-import { Image, Archive, CheckSquare, Square, Tag, X, Upload } from 'lucide-react';
+import { Image, Archive, CheckSquare, Square, X, Upload, BadgeCheck, FileCheck2, Layers3 } from 'lucide-react';
 import JSZip from 'jszip';
 import { useLanguage } from '../contexts/LanguageContext';
 import { STICKER_STYLES } from '../constants';
@@ -27,7 +27,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
   regeneratingIds = new Set(),
   onUploadImage
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isZipping, setIsZipping] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -51,6 +51,32 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
     if (selectedCategory === 'All') return images;
     return images.filter(img => img.styleName === selectedCategory);
   }, [images, selectedCategory]);
+
+  const copy = language === 'zh'
+    ? {
+        transparentPng: '透明 PNG',
+        backgroundKept: '保留背景',
+        zipReady: '可打包导出',
+        transparentHelp: '适合 sticker、icon、贴纸包等需要透明素材的场景。',
+        backgroundHelp: '适合海报、卡片、场景图或需要背景的素材。',
+        zipHelp: '选择图片后可一次下载 ZIP。',
+        selectedReady: '已选择',
+        visibleReady: '当前可见',
+      }
+    : {
+        transparentPng: 'Transparent PNG',
+        backgroundKept: 'Background kept',
+        zipReady: 'ZIP-ready',
+        transparentHelp: 'For stickers, icons, and packs that need transparent assets.',
+        backgroundHelp: 'For posters, cards, scenes, or assets that should keep a background.',
+        zipHelp: 'Select images to export them together.',
+        selectedReady: 'selected',
+        visibleReady: 'visible',
+      };
+
+  const transparentCount = images.filter(image => image.backgroundRemoved === true).length;
+  const backgroundKeptCount = images.filter(image => image.backgroundRemoved === false).length;
+  const zipReadyCount = selectedIds.size || filteredImages.length;
 
   const toggleSelection = (id: string) => {
     const newSelected = new Set(selectedIds);
@@ -296,6 +322,43 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
           </button>
         )}
       </div>
+
+      {images.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black text-emerald-700 uppercase tracking-wide">
+                <BadgeCheck size={15} />
+                {copy.transparentPng}
+              </div>
+              <span className="text-lg font-black text-stone-900">{transparentCount}</span>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-stone-500">{copy.transparentHelp}</p>
+          </div>
+          <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black text-stone-600 uppercase tracking-wide">
+                <Layers3 size={15} />
+                {copy.backgroundKept}
+              </div>
+              <span className="text-lg font-black text-stone-900">{backgroundKeptCount}</span>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-stone-500">{copy.backgroundHelp}</p>
+          </div>
+          <div className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black text-orange-700 uppercase tracking-wide">
+                <FileCheck2 size={15} />
+                {copy.zipReady}
+              </div>
+              <span className="text-lg font-black text-stone-900">{zipReadyCount}</span>
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-stone-500">
+              {selectedIds.size > 0 ? `${selectedIds.size} ${copy.selectedReady}` : `${filteredImages.length} ${copy.visibleReady}`} · {copy.zipHelp}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {/* Placeholder skeletons while generating */}

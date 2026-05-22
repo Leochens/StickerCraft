@@ -79,6 +79,12 @@ export interface GeneratedImage {
   prompt: string;
   createdAt: number;
   styleName: string;
+  backgroundRemoved?: boolean;
+  backgroundColor?: string;
+  hasStickerBorder?: boolean;
+  hasText?: boolean;
+  hasReferenceImage?: boolean;
+  sourceType?: 'generated' | 'uploaded';
 }
 
 export interface GenerationState {

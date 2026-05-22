@@ -118,6 +118,11 @@ export const getDefaultAPISettings = (): APISettings => ({
   gpt: getDefaultGPTSettings(),
 });
 
+type RawAPISettings = Partial<Omit<APISettings, "gemini" | "gpt">> & {
+  gemini?: Partial<ProviderAPISettings>;
+  gpt?: Partial<ProviderAPISettings>;
+};
+
 const isAPIProvider = (value: unknown): value is APIProvider => (
   value === APIProvider.GEMINI || value === APIProvider.GPT
 );
@@ -141,7 +146,7 @@ const normalizeProviderSettings = (
     : defaults.textModel,
 });
 
-export const normalizeAPISettings = (raw: Partial<APISettings> | undefined): APISettings => {
+export const normalizeAPISettings = (raw: RawAPISettings | undefined): APISettings => {
   const defaults = getDefaultAPISettings();
 
   return {

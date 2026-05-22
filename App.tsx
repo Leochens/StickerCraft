@@ -6,11 +6,11 @@ import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, I
 import { generateStickers } from './services/geminiService';
 import { loadPersistedStickerCraftData, saveCustomStyles, saveGeneratedImages } from './services/storageService';
 import { STICKER_STYLES } from './constants';
-import { X, Download } from 'lucide-react';
+import { X, Download, BadgeCheck, FileImage, Layers3, ShieldCheck } from 'lucide-react';
 import { useLanguage } from './contexts/LanguageContext';
 
 const App: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -179,7 +179,8 @@ const App: React.FC = () => {
           dataUrl: dataUrl,
           prompt: prompt,
           createdAt: Date.now(),
-          styleName: styleName
+          styleName: styleName,
+          sourceType: 'uploaded'
       };
       setImages(prev => [newImage, ...prev]);
   };
@@ -192,6 +193,66 @@ const App: React.FC = () => {
     if (previewImage?.id === id) {
         closePreview();
     }
+  };
+
+  const assetCopy = language === 'zh'
+    ? {
+        galleryDescription: '检查生成结果、透明状态和批量导出准备度。',
+        transparent: '透明 PNG',
+        backgroundKept: '保留背景',
+        uploaded: '上传素材',
+        whiteBorder: '白边',
+        noBorder: '无白边',
+        text: '含文字',
+        reference: '参考图',
+        assetReadiness: '素材状态',
+        transparentNote: '透明结果由纯色背景生成后处理得到；复杂发光、头发或半透明边缘仍建议复查。',
+        backgroundNote: '该素材保留了生成背景，适合海报、卡片或需要背景的贴纸图。',
+        uploadedNote: '这是手动上传到图库的素材，透明状态取决于原始文件。',
+        apiTrust: 'API Key 保存在浏览器本地配置中；公开部署前请加后端代理和额度保护。',
+        galleryTitlePrefix: '贴纸',
+        galleryTitleAccent: '图库',
+      }
+    : {
+        galleryDescription: 'Review generated assets, transparency state, and batch export readiness.',
+        transparent: 'Transparent PNG',
+        backgroundKept: 'Background kept',
+        uploaded: 'Uploaded asset',
+        whiteBorder: 'White border',
+        noBorder: 'No border',
+        text: 'Text',
+        reference: 'Reference image',
+        assetReadiness: 'Asset readiness',
+        transparentNote: 'Transparency is created from a controlled solid-background workflow; inspect glow, hair, or soft edges before print use.',
+        backgroundNote: 'This asset keeps its generated background for posters, cards, or sticker art that needs a scene.',
+        uploadedNote: 'This was uploaded manually; transparency depends on the original file.',
+        apiTrust: 'API keys stay in browser settings; add a backend proxy and quota protection before public shared deployments.',
+        galleryTitlePrefix: 'Sticker',
+        galleryTitleAccent: 'Gallery',
+      };
+
+  const getPreviewAssetNote = (image: GeneratedImage) => {
+    if (image.sourceType === 'uploaded') return assetCopy.uploadedNote;
+    if (image.backgroundRemoved === false) return assetCopy.backgroundNote;
+    return assetCopy.transparentNote;
+  };
+
+  const getPreviewBadges = (image: GeneratedImage) => {
+    const badges = [
+      image.sourceType === 'uploaded'
+        ? assetCopy.uploaded
+        : image.backgroundRemoved === false
+          ? assetCopy.backgroundKept
+          : assetCopy.transparent,
+    ];
+
+    if (image.sourceType !== 'uploaded') {
+      badges.push(image.hasStickerBorder ? assetCopy.whiteBorder : assetCopy.noBorder);
+    }
+    if (image.hasText) badges.push(assetCopy.text);
+    if (image.hasReferenceImage) badges.push(assetCopy.reference);
+
+    return badges;
   };
 
   return (
@@ -233,10 +294,10 @@ const App: React.FC = () => {
              {/* Header for the canvas area */}
              <div className="mb-6">
                 <h2 className="text-3xl font-extrabold text-stone-800 tracking-tight">
-                  {t('hero_title_2')} <span className="text-orange-500">Gallery</span>
+                  {assetCopy.galleryTitlePrefix} <span className="text-orange-500">{assetCopy.galleryTitleAccent}</span>
                 </h2>
                 <p className="text-stone-500 mt-1">
-                  Your generated stickers collection
+                  {assetCopy.galleryDescription}
                 </p>
              </div>
 
@@ -297,11 +358,41 @@ const App: React.FC = () => {
                     {previewImage.prompt}
                   </p>
                 </div>
+                <div className="rounded-2xl border border-orange-100 bg-orange-50/60 p-3">
+                  <div className="flex items-center gap-2 text-xs font-black text-orange-800 uppercase tracking-wide mb-2">
+                    <BadgeCheck size={14} />
+                    {assetCopy.assetReadiness}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {getPreviewBadges(previewImage).map((badge) => (
+                      <span key={badge} className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-orange-700 border border-orange-100">
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs leading-relaxed text-orange-800">
+                    {getPreviewAssetNote(previewImage)}
+                  </p>
+                </div>
                 <div>
                   <label className="text-xs font-bold text-stone-400 uppercase">{t('created')}</label>
                   <p className="text-stone-700 text-sm font-mono">
                     {new Date(previewImage.createdAt).toLocaleString()}
                   </p>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-stone-50 border border-stone-100 p-2 text-center">
+                    <FileImage size={15} className="mx-auto mb-1 text-stone-500" />
+                    <p className="text-[10px] font-bold text-stone-500">PNG</p>
+                  </div>
+                  <div className="rounded-xl bg-stone-50 border border-stone-100 p-2 text-center">
+                    <Layers3 size={15} className="mx-auto mb-1 text-stone-500" />
+                    <p className="text-[10px] font-bold text-stone-500">ZIP</p>
+                  </div>
+                  <div className="rounded-xl bg-stone-50 border border-stone-100 p-2 text-center" title={assetCopy.apiTrust}>
+                    <ShieldCheck size={15} className="mx-auto mb-1 text-stone-500" />
+                    <p className="text-[10px] font-bold text-stone-500">BYOK</p>
+                  </div>
                 </div>
               </div>
 

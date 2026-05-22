@@ -24,7 +24,41 @@ const StickerCard: React.FC<StickerCardProps> = ({
   onDelete,
   isRegenerating = false
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const copy = language === 'zh'
+    ? {
+        transparent: '透明 PNG',
+        backgroundKept: '保留背景',
+        uploaded: '上传素材',
+        whiteBorder: '白边',
+        noBorder: '无白边',
+        text: '文字',
+        reference: '参考图',
+      }
+    : {
+        transparent: 'Transparent PNG',
+        backgroundKept: 'Background kept',
+        uploaded: 'Uploaded asset',
+        whiteBorder: 'White border',
+        noBorder: 'No border',
+        text: 'Text',
+        reference: 'Reference',
+      };
+
+  const assetBadges = [
+    image.sourceType === 'uploaded'
+      ? copy.uploaded
+      : image.backgroundRemoved === false
+        ? copy.backgroundKept
+        : copy.transparent,
+  ];
+
+  if (image.sourceType !== 'uploaded') {
+    assetBadges.push(image.hasStickerBorder ? copy.whiteBorder : copy.noBorder);
+  }
+  if (image.hasText) assetBadges.push(copy.text);
+  if (image.hasReferenceImage) assetBadges.push(copy.reference);
 
   const handleDownload = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -152,6 +186,16 @@ const StickerCard: React.FC<StickerCardProps> = ({
         <p className="text-xs text-stone-600 font-semibold truncate" title={image.prompt}>
           {image.prompt}
         </p>
+        <div className="mt-2 flex flex-wrap gap-1">
+          {assetBadges.slice(0, 3).map((badge) => (
+            <span
+              key={badge}
+              className="rounded-full border border-stone-200 bg-stone-50 px-1.5 py-0.5 text-[9px] font-bold text-stone-500"
+            >
+              {badge}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

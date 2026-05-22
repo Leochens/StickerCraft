@@ -90,6 +90,23 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const activeModel = isCustomModel ? customModel.trim() : model;
   const activeModelSupportsImageSize = modelSupportsImageSize(activeModel);
   const imageModelOptions = getProviderImageModels(activeProvider);
+  const outputCopy = language === 'zh'
+    ? {
+        transparentMode: '透明 PNG 工作流',
+        transparentHint: useStickerBorder
+          ? '会先生成黑色纯色背景以保护白边，再尝试移除背景。'
+          : '会先生成白色纯色背景，再尝试移除背景。适合图标、贴纸包和透明素材。',
+        backgroundMode: '保留背景',
+        backgroundHint: '会保留你选择的背景色，适合海报、卡片或场景图。',
+      }
+    : {
+        transparentMode: 'Transparent PNG workflow',
+        transparentHint: useStickerBorder
+          ? 'Uses a solid black generation background to protect the white border, then removes the background.'
+          : 'Uses a solid white generation background, then removes it for icon, sticker-pack, and transparent asset workflows.',
+        backgroundMode: 'Background kept',
+        backgroundHint: 'Keeps the selected background color for posters, cards, or scene-style assets.',
+      };
 
   useEffect(() => {
     const handleSettingsUpdated = () => {
@@ -764,6 +781,16 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             >
               <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${backgroundEnabled ? 'translate-x-4' : ''}`}></div>
             </button>
+        </div>
+
+        <div className={`rounded-xl border p-3 ${backgroundEnabled ? 'border-stone-200 bg-stone-50' : 'border-emerald-100 bg-emerald-50/70'}`}>
+          <div className={`flex items-center gap-1.5 text-xs font-black uppercase tracking-wide ${backgroundEnabled ? 'text-stone-600' : 'text-emerald-700'}`}>
+            <Info size={13} />
+            {backgroundEnabled ? outputCopy.backgroundMode : outputCopy.transparentMode}
+          </div>
+          <p className={`mt-1 text-xs leading-relaxed ${backgroundEnabled ? 'text-stone-500' : 'text-emerald-700'}`}>
+            {backgroundEnabled ? outputCopy.backgroundHint : outputCopy.transparentHint}
+          </p>
         </div>
 
         {backgroundEnabled && (

@@ -478,7 +478,13 @@ export const generateStickers = async (
       dataUrl,
       prompt,
       createdAt: Date.now(),
-      styleName: style.name
+      styleName: style.name,
+      backgroundRemoved: !request.backgroundConfig.enabled,
+      backgroundColor: request.backgroundConfig.enabled ? request.backgroundConfig.color : undefined,
+      hasStickerBorder: request.useStickerBorder,
+      hasText: request.textConfig.enabled,
+      hasReferenceImage: Boolean(request.referenceImage),
+      sourceType: 'generated'
     }));
   } catch (error) {
     console.error("Batch generation failed:", error);
