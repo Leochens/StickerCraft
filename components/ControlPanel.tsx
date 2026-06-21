@@ -5,7 +5,7 @@ import { STICKER_STYLES, ASPECT_RATIOS, RESOLUTIONS, AVAILABLE_FONTS, BACKGROUND
 import { Wand2, Layers, Monitor, Sliders, Check, Plus, Upload, Trash2, ImagePlus, Info, Type, Palette as PaletteIcon, Sparkles, Box, LayoutPanelLeft, Sticker, ChevronDown, Smile, ChevronUp, Save, X, Lightbulb, ListPlus } from 'lucide-react';
 import { analyzeStyleFromImage, generateCollectionItemPrompts, generateRelatedPrompts } from '../services/geminiService';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getActiveProviderSettings, getProviderImageModels, loadAPISettings, modelSupportsImageSize } from '../services/apiConfig';
+import { getActiveProviderSettings, getProviderDefaultImageModel, getProviderImageModels, getProviderLabel, loadAPISettings, modelSupportsImageSize } from '../services/apiConfig';
 
 interface ControlPanelProps {
   onGenerate: (requests: StickerRequest[]) => void;
@@ -813,14 +813,14 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
               value={customModel}
               onChange={(e) => setCustomModel(e.target.value)}
               disabled={isGenerating}
-              placeholder={activeProvider === APIProvider.GPT ? 'e.g. gpt-image-2' : 'e.g. gemini-3.1-flash-image-preview'}
+              placeholder={`e.g. ${getProviderDefaultImageModel(activeProvider)}`}
               className="w-full p-1.5 rounded-lg border border-orange-200 bg-white text-xs font-bold text-stone-700 focus:border-orange-400 outline-none"
             />
           )}
           <p className="text-[10px] text-stone-400 leading-snug">
             {language === 'zh'
-              ? `当前使用 ${activeProvider === APIProvider.GPT ? 'GPT / OpenAI' : 'Gemini'} 图片模型；如果中转站改了模型名，可在这里手动输入。`
-              : `Using ${activeProvider === APIProvider.GPT ? 'GPT / OpenAI' : 'Gemini'} image models. Enter a custom name if your proxy exposes different model IDs.`}
+              ? `当前使用 ${getProviderLabel(activeProvider)} 图片模型；如果中转站改了模型名，可在这里手动输入。`
+              : `Using ${getProviderLabel(activeProvider)} image models. Enter a custom name if your proxy exposes different model IDs.`}
           </p>
         </div>
 

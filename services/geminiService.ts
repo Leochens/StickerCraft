@@ -6,6 +6,9 @@ import {
   getOpenAIEndpointUrl,
   loadAPISettings,
   modelSupportsImageSize,
+  resolveAgnesAssetUrl,
+  usesChatCompletionsAPI,
+  usesOpenAIImageAPI,
 } from "./apiConfig";
 import { repairStickerTransparency } from "./imageProcessing";
 
@@ -22,9 +25,10 @@ const requestOpenAI = async (
   providerSettings: ProviderAPISettings,
   path: string,
   init: RequestInit,
+  providerLabel = "OpenAI",
 ) => {
   if (!providerSettings.apiKey.trim()) {
-    throw new Error("Please configure an OpenAI API Key before generating stickers.");
+    throw new Error(`Please configure a ${providerLabel} API Key before generating stickers.`);
   }
 
   const response = await fetch(getOpenAIEndpointUrl(providerSettings, path), {
@@ -38,7 +42,7 @@ const requestOpenAI = async (
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message = payload?.error?.message || payload?.message || `OpenAI API request failed (${response.status})`;
+    const message = payload?.error?.message || payload?.message || `${providerLabel} API request failed (${response.status})`;
     throw new Error(message);
   }
 
@@ -129,14 +133,92 @@ const getOpenAIImageSize = (aspectRatio: AspectRatio, resolution?: ImageResoluti
   return "1024x1024";
 };
 
-const extractOpenAIImageDataUrl = (payload: any): string => {
-  const imageBase64 = payload?.data?.[0]?.b64_json;
-  if (!imageBase64) {
+const extractOpenAIImageDataUrl = async (payload: any): Promise<string> => {
+  const imageData = payload?.data?.[0];
+  if (!imageData) {
     throw new Error("No image data found in OpenAI response.");
   }
 
-  const outputFormat = payload?.output_format || "png";
-  return `data:image/${outputFormat};base64,${imageBase64}`;
+  if (imageData.b64_json) {
+    const outputFormat = payload?.output_format || "png";
+    return `data:image/${outputFormat};base64,${imageData.b64_json}`;
+  }
+
+  if (typeof imageData.url === "string") {
+    const imageResponse = await fetch(resolveAgnesAssetUrl(imageData.url));
+    if (!imageResponse.ok) {
+      throw new Error("Failed to download image from provider URL.");
+    }
+    const imageBlob = await imageResponse.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => reject(new Error("Failed to convert downloaded image."));
+      reader.readAsDataURL(imageBlob);
+    });
+  }
+
+  throw new Error("No image data found in OpenAI response.");
+};
+
+const generateAgnesText = async (
+  prompt: string,
+  providerSettings: ProviderAPISettings,
+  imageDataUrl?: string,
+): Promise<string> => {
+  if (!providerSettings.textModel.trim()) {
+    throw new Error("Please configure an Agnes text model before using helper features.");
+  }
+
+  const messages = imageDataUrl
+    ? [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: imageDataUrl } },
+        ],
+      }]
+    : [{ role: "user", content: prompt }];
+
+  const payload = await requestOpenAI(providerSettings, "chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: providerSettings.textModel,
+      messages,
+    }),
+  }, "Agnes");
+
+  const content = payload?.choices?.[0]?.message?.content;
+  const text = typeof content === "string"
+    ? content.trim()
+    : Array.isArray(content)
+      ? content
+        .map((part: any) => (typeof part?.text === "string" ? part.text : ""))
+        .join("\n")
+        .trim()
+      : "";
+
+  if (!text) {
+    throw new Error("No text data found in Agnes response.");
+  }
+
+  return text;
+};
+
+const generateProviderText = async (
+  provider: APIProvider,
+  prompt: string,
+  providerSettings: ProviderAPISettings,
+  imageDataUrl?: string,
+): Promise<string> => {
+  if (usesChatCompletionsAPI(provider)) {
+    return generateAgnesText(prompt, providerSettings, imageDataUrl);
+  }
+
+  return generateOpenAIText(prompt, providerSettings, imageDataUrl);
 };
 
 const generateOpenAIImage = async (
@@ -181,6 +263,61 @@ const generateOpenAIImage = async (
       background: "opaque",
     }),
   }));
+};
+
+const generateAgnesImage = async (
+  providerSettings: ProviderAPISettings,
+  model: string,
+  fullPrompt: string,
+  request: StickerRequest,
+): Promise<string> => {
+  if (!providerSettings.imageModel.trim() && !model.trim()) {
+    throw new Error("Please configure an Agnes image model before generating stickers.");
+  }
+
+  const imageModel = model.trim() || providerSettings.imageModel.trim();
+  const size = getOpenAIImageSize(request.aspectRatio, request.resolution);
+
+  if (request.referenceImage) {
+    const formData = new FormData();
+    const imageBlob = await dataUrlToBlob(request.referenceImage);
+    const extension = getDataUrlMimeType(request.referenceImage).split("/")[1] || "png";
+    formData.append("model", imageModel);
+    formData.append("prompt", fullPrompt);
+    formData.append("size", size);
+    formData.append("image[]", imageBlob, `reference.${extension}`);
+
+    return extractOpenAIImageDataUrl(await requestOpenAI(providerSettings, "images/edits", {
+      method: "POST",
+      body: formData,
+    }, "Agnes"));
+  }
+
+  return extractOpenAIImageDataUrl(await requestOpenAI(providerSettings, "images/generations", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: imageModel,
+      prompt: fullPrompt,
+      size,
+    }),
+  }, "Agnes"));
+};
+
+const generateProviderImage = async (
+  provider: APIProvider,
+  providerSettings: ProviderAPISettings,
+  model: string,
+  fullPrompt: string,
+  request: StickerRequest,
+): Promise<string> => {
+  if (provider === APIProvider.AGNES) {
+    return generateAgnesImage(providerSettings, model, fullPrompt, request);
+  }
+
+  return generateOpenAIImage(providerSettings, model, fullPrompt, request);
 };
 
 const generateSingleImage = async (
@@ -291,8 +428,14 @@ const generateSingleImage = async (
     const apiSettings = loadAPISettings();
     const activeProviderSettings = getActiveProviderSettings(apiSettings);
 
-    if (apiSettings.activeProvider === APIProvider.GPT) {
-      const rawBase64 = await generateOpenAIImage(activeProviderSettings, model, fullPrompt, request);
+    if (usesOpenAIImageAPI(apiSettings.activeProvider)) {
+      const rawBase64 = await generateProviderImage(
+        apiSettings.activeProvider,
+        activeProviderSettings,
+        model,
+        fullPrompt,
+        request,
+      );
 
       if (shouldRemoveBg) {
         try {
@@ -427,8 +570,13 @@ export const analyzeStyleFromImage = async (base64Image: string): Promise<string
     const activeProviderSettings = getActiveProviderSettings(apiSettings);
     const analysisPrompt = "Analyze the artistic style of this image. Provide a concise, comma-separated list of visual style descriptors (e.g., 'watercolor, soft edges, pastel colors, thick outlines') that can be used as a prompt modifier for generating similar sticker art. Do not describe the subject matter, ONLY the visual style, medium, and technique. Keep it under 30 words.";
 
-    if (apiSettings.activeProvider === APIProvider.GPT) {
-      return (await generateOpenAIText(analysisPrompt, activeProviderSettings, base64Image)).trim();
+    if (usesChatCompletionsAPI(apiSettings.activeProvider) || apiSettings.activeProvider === APIProvider.GPT) {
+      return (await generateProviderText(
+        apiSettings.activeProvider,
+        analysisPrompt,
+        activeProviderSettings,
+        base64Image,
+      )).trim();
     }
 
     // Remove data URI prefix if present for the API call
@@ -477,8 +625,8 @@ export const generateRelatedPrompts = async (category: string): Promise<string[]
       Cool Watermelon
       ...`;
 
-    if (apiSettings.activeProvider === APIProvider.GPT) {
-      return (await generateOpenAIText(prompt, activeProviderSettings))
+    if (usesChatCompletionsAPI(apiSettings.activeProvider) || apiSettings.activeProvider === APIProvider.GPT) {
+      return (await generateProviderText(apiSettings.activeProvider, prompt, activeProviderSettings))
         .split('\n')
         .map(line => line.trim())
         .filter(line => line.length > 0);
@@ -514,8 +662,8 @@ Each line should describe one distinct mini sticker in 3-8 words.
 Keep them visually related, concrete, and easy to draw.
 Return ONLY the list, one item per line. No numbering, no bullets, no extra text.`;
 
-    const text = apiSettings.activeProvider === APIProvider.GPT
-      ? await generateOpenAIText(prompt, activeProviderSettings)
+    const text = usesChatCompletionsAPI(apiSettings.activeProvider) || apiSettings.activeProvider === APIProvider.GPT
+      ? await generateProviderText(apiSettings.activeProvider, prompt, activeProviderSettings)
       : (await createGeminiClient(activeProviderSettings).models.generateContent({
           model: activeProviderSettings.textModel,
           contents: prompt,

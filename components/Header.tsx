@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Check, ChevronDown, ExternalLink, Eye, EyeOff, Github, Globe, Settings2, KeyRound, RotateCcw, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Check, ChevronDown, ExternalLink, Eye, EyeOff, Github, Globe, HelpCircle, KeyRound, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { LANGUAGE_OPTIONS } from '../constants';
 import {
@@ -24,6 +24,13 @@ const Header: React.FC = () => {
   const [settings, setSettings] = useState<APISettings>(() => loadAPISettings());
   const [draft, setDraft] = useState<APISettings>(() => loadAPISettings());
   const [isApiKeyVisible, setIsApiKeyVisible] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  const providerOptions = useMemo(() => ([
+    { id: APIProvider.GEMINI, label: 'Gemini', shortLabel: 'Gemini' },
+    { id: APIProvider.GPT, label: 'GPT', shortLabel: 'GPT' },
+    { id: APIProvider.AGNES, label: 'Agnes', shortLabel: 'Agnes' },
+  ]), []);
 
   useEffect(() => {
     const handleSettingsUpdated = () => {
@@ -45,24 +52,32 @@ const Header: React.FC = () => {
         provider: '当前 API',
         gemini: 'Gemini',
         gpt: 'GPT / OpenAI',
+        agnes: 'Agnes AI',
         apiKey: 'API Key',
         endpoint: 'Endpoint',
         imageModel: '图片生成模型',
         helperModel: '文本模型',
         apiKeyPlaceholder: '输入当前 API 的 Key',
-        endpointHint: 'Gemini 默认使用 Google 官方端点；GPT 默认使用 OpenAI /v1 端点。只有使用中转站时才需要修改。',
-        imageModelHint: '当前 API 必须配置一个图片生成模型。GPT 推荐 gpt-image-2，Gemini 推荐 Nano Banana 2。',
-        helperHint: '用于风格分析和提示词生成。当前 API 必须配置一个文本模型。',
-        disclaimerTitle: 'API 接入免责声明',
-        disclaimerDescription: '推荐优先使用 Gemini / OpenAI 官方 API 接入。官方 API 的可用性、计费和服务条款以对应官方平台为准。',
-        officialEndpoint: '接入地址',
-        officialAction: '打开官方入口',
-        proxyTitle: '仍然无法使用官方 API？',
-        proxyDescription: '如果因为地区、网络或账号限制无法使用官方 API，再考虑使用 VAPI 来做中转。',
-        proxyAction: '打开 VAPI',
+        endpointHint: '默认使用官方端点；仅在使用中转站时需要修改。',
+        imageModelHint: '用于生成贴纸图片。',
+        helperHint: '用于风格分析与提示词生成。',
+        disclaimerTitle: 'API 接入说明',
+        disclaimerDescription: '推荐优先使用官方 API。可用性、计费与服务条款以对应平台为准。',
+        officialEndpoint: '默认端点',
+        officialAction: '获取 API Key',
+        helpTitle: '需要帮助？',
+        helpToggleShow: '查看接入说明',
+        helpToggleHide: '收起说明',
+        proxyTitle: '无法使用官方 API？',
+        proxyDescription: '可尝试使用 VAPI 等中转服务。',
+        proxyAction: '了解 VAPI',
+        customModel: '自定义…',
+        configSection: '连接配置',
+        modelsSection: '模型配置',
         showApiKey: '显示 API Key',
         hideApiKey: '隐藏 API Key',
-        save: '保存配置',
+        save: '保存',
+        cancel: '取消',
         reset: '恢复默认',
         configured: '已配置',
         missing: '未配置',
@@ -72,25 +87,33 @@ const Header: React.FC = () => {
         provider: 'Active API',
         gemini: 'Gemini',
         gpt: 'GPT / OpenAI',
+        agnes: 'Agnes AI',
         apiKey: 'API Key',
         endpoint: 'Endpoint',
         imageModel: 'Image generation model',
         helperModel: 'Text model',
         apiKeyPlaceholder: 'Enter the selected API key',
-        endpointHint: 'Gemini uses the official Google endpoint by default. GPT uses the OpenAI /v1 endpoint by default. Change this only for proxy services.',
-        imageModelHint: 'The selected API must have an image model. Prefer gpt-image-2 for GPT and Nano Banana 2 for Gemini.',
-        helperHint: 'Used for style analysis and prompt generation. The selected API must have a text model.',
-        disclaimerTitle: 'API access disclaimer',
-        disclaimerDescription: 'Prefer the official Gemini / OpenAI APIs first. Availability, billing, and terms are controlled by the official provider.',
-        officialEndpoint: 'Endpoint',
-        officialAction: 'Open official page',
-        proxyTitle: 'Still cannot use the official API?',
-        proxyDescription: 'If region, network, or account limits block official API access, you can consider VAPI as a proxy service.',
-        proxyAction: 'Open VAPI',
+        endpointHint: 'Uses the official endpoint by default. Change this only for proxy services.',
+        imageModelHint: 'Used for sticker image generation.',
+        helperHint: 'Used for style analysis and prompt generation.',
+        disclaimerTitle: 'API access note',
+        disclaimerDescription: 'Prefer official APIs first. Availability, billing, and terms are controlled by each provider.',
+        officialEndpoint: 'Default endpoint',
+        officialAction: 'Get API Key',
+        helpTitle: 'Need help?',
+        helpToggleShow: 'Show setup guide',
+        helpToggleHide: 'Hide setup guide',
+        proxyTitle: 'Cannot use the official API?',
+        proxyDescription: 'You can try a proxy service such as VAPI.',
+        proxyAction: 'Learn about VAPI',
+        customModel: 'Custom…',
+        configSection: 'Connection',
+        modelsSection: 'Models',
         showApiKey: 'Show API Key',
         hideApiKey: 'Hide API Key',
-        save: 'Save settings',
-        reset: 'Reset defaults',
+        save: 'Save',
+        cancel: 'Cancel',
+        reset: 'Reset',
         configured: 'Configured',
         missing: 'Missing',
       };
@@ -102,18 +125,37 @@ const Header: React.FC = () => {
   const activeProviderLabel = getProviderLabel(draft.activeProvider);
   const activeImageModels = getProviderImageModels(draft.activeProvider);
   const activeTextModels = getProviderTextModels(draft.activeProvider);
-  const officialApiOptions = [
-    {
+  const officialApiOptions: Record<APIProvider, { name: string; endpoint: string; href: string }> = {
+    [APIProvider.GEMINI]: {
       name: 'Gemini',
       endpoint: getProviderDefaultEndpoint(APIProvider.GEMINI),
       href: 'https://aistudio.google.com/app/apikey',
     },
-    {
+    [APIProvider.GPT]: {
       name: 'OpenAI',
       endpoint: getProviderDefaultEndpoint(APIProvider.GPT),
       href: 'https://platform.openai.com/api-keys',
     },
-  ];
+    [APIProvider.AGNES]: {
+      name: 'Agnes AI',
+      endpoint: getProviderDefaultEndpoint(APIProvider.AGNES),
+      href: 'https://platform.agnes-ai.com/settings/apiKeys',
+    },
+  };
+  const activeOfficialOption = officialApiOptions[draft.activeProvider];
+
+  const isCustomImageModel = !activeImageModels.some(model => model.value === activeDraft.imageModel);
+  const isCustomTextModel = !activeTextModels.some(model => model.value === activeDraft.textModel);
+
+  const iosSectionClass = 'px-4 mb-1.5 text-[13px] font-normal text-[rgba(60,60,67,0.6)]';
+  const iosGroupClass = 'rounded-[10px] bg-white overflow-hidden';
+  const iosRowClass = 'px-4 py-3 border-b border-[rgba(60,60,67,0.12)] last:border-b-0';
+  const iosFootnoteClass = 'px-4 mt-2 text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]';
+  const iosChipClass = (active: boolean) => (
+    active
+      ? 'bg-[#007AFF] text-white shadow-sm'
+      : 'bg-[rgba(120,120,128,0.12)] text-[rgba(60,60,67,0.6)] active:opacity-70'
+  );
 
   const updateProviderDraft = (provider: APIProvider, nextProviderSettings: Partial<ProviderAPISettings>) => {
     setDraft(prev => ({
@@ -176,10 +218,10 @@ const Header: React.FC = () => {
               setIsApiKeyVisible(false);
               setIsSettingsOpen(true);
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-xs font-bold border ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-[13px] font-medium border ${
               activeProviderConfigured
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-100 hover:bg-emerald-100'
-                : 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100'
+                ? 'bg-white/80 text-[#007AFF] border-[rgba(60,60,67,0.12)] hover:bg-white'
+                : 'bg-[rgba(255,149,0,0.12)] text-[#FF9500] border-transparent hover:bg-[rgba(255,149,0,0.18)]'
             }`}
           >
             <KeyRound size={14} />
@@ -235,200 +277,239 @@ const Header: React.FC = () => {
       </div>
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 backdrop-blur-sm px-4 py-4 sm:py-8" onClick={() => setIsSettingsOpen(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-md px-0 sm:px-4"
+          onClick={() => setIsSettingsOpen(false)}
+        >
           <div
-            className="w-full max-w-lg max-h-[calc(100vh-2rem)] rounded-2xl bg-white shadow-2xl border border-orange-100 overflow-hidden animate-fade-in flex flex-col"
+            className="ios-sheet flex h-[92vh] w-full flex-col overflow-hidden rounded-t-[20px] bg-[#F2F2F7] shadow-2xl animate-fade-in sm:h-[700px] sm:min-h-[700px] sm:max-h-[700px] sm:w-[520px] sm:min-w-[520px] sm:max-w-[520px] sm:rounded-[20px]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-5 border-b border-orange-50 flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-orange-50 text-orange-600">
-                  <Settings2 size={18} />
-                </div>
-                <div>
-                  <h2 className="font-black text-stone-900">{copy.settings}</h2>
-                  <p className="text-xs text-stone-400">
-                    {activeProviderLabel} · {draftProviderConfigured ? copy.configured : copy.missing}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsSettingsOpen(false)}
-                className="p-2 rounded-full text-stone-400 hover:bg-stone-100 hover:text-stone-700"
-              >
-                <X size={18} />
-              </button>
+            <div className="flex justify-center pt-2 pb-1 sm:hidden flex-shrink-0">
+              <div className="w-9 h-1 rounded-full bg-black/15" />
             </div>
 
-            <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
-              <div className="rounded-xl border border-sky-100 bg-sky-50/70 p-3 space-y-3">
-                <div className="space-y-1">
-                  <p className="text-xs font-black text-sky-900">{copy.disclaimerTitle}</p>
-                  <p className="text-xs text-sky-700 leading-relaxed">{copy.disclaimerDescription}</p>
-                </div>
-                <div className="space-y-2">
-                  {officialApiOptions.map((option) => (
-                    <div key={option.name} className="border-t border-sky-100 pt-2 first:border-t-0 first:pt-0">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0 space-y-1">
-                          <p className="text-xs font-black text-sky-900">{option.name}</p>
-                          <p className="text-[11px] font-bold text-sky-700 break-all">
-                            {copy.officialEndpoint}: {option.endpoint}
-                          </p>
-                        </div>
-                        <a
-                          href={option.href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-black text-sky-700 border border-sky-100 shadow-sm hover:bg-sky-100 hover:text-sky-900 transition-colors"
-                        >
-                          {copy.officialAction}
-                          <ExternalLink size={13} />
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 p-3">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-xs font-black text-emerald-900">{copy.proxyTitle}</p>
-                    <p className="text-xs text-emerald-700 leading-relaxed">{copy.proxyDescription}</p>
-                  </div>
-                  <a
-                    href="https://api.gpt.ge/register?aff=qMCL"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-black text-emerald-700 border border-emerald-100 shadow-sm hover:bg-emerald-100 hover:text-emerald-900 transition-colors"
-                  >
-                    {copy.proxyAction}
-                    <ExternalLink size={13} />
-                  </a>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.provider}</span>
-                <div className="grid grid-cols-2 gap-2 rounded-xl bg-stone-100 p-1">
-                  {[APIProvider.GEMINI, APIProvider.GPT].map((provider) => (
-                    <button
-                      key={provider}
-                      type="button"
-                      onClick={() => setDraft(prev => ({ ...prev, activeProvider: provider }))}
-                      className={`rounded-lg px-3 py-2 text-xs font-black transition-colors ${
-                        draft.activeProvider === provider
-                          ? 'bg-white text-orange-700 shadow-sm'
-                          : 'text-stone-500 hover:text-stone-800'
-                      }`}
-                    >
-                      {provider === APIProvider.GPT ? copy.gpt : copy.gemini}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{activeProviderLabel} {copy.apiKey}</span>
-                <div className="relative">
-                  <input
-                    type={isApiKeyVisible ? "text" : "password"}
-                    value={activeDraft.apiKey}
-                    onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
-                    placeholder={copy.apiKeyPlaceholder}
-                    className="w-full rounded-xl border-2 border-stone-200 bg-stone-50 p-3 pr-12 text-sm font-bold text-stone-800 outline-none focus:border-orange-400 focus:bg-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsApiKeyVisible(prev => !prev)}
-                    className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-stone-400 transition-colors hover:bg-orange-50 hover:text-orange-600"
-                    aria-label={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
-                    title={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
-                  >
-                    {isApiKeyVisible ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.endpoint}</span>
-                <input
-                  type="url"
-                  value={activeDraft.endpoint}
-                  onChange={(event) => updateProviderDraft(draft.activeProvider, { endpoint: event.target.value })}
-                  placeholder={getProviderDefaultEndpoint(draft.activeProvider)}
-                  className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
-                />
-                <p className="text-xs text-stone-500 leading-relaxed">{copy.endpointHint}</p>
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.imageModel}</span>
-                <input
-                  type="text"
-                  value={activeDraft.imageModel}
-                  onChange={(event) => updateProviderDraft(draft.activeProvider, { imageModel: event.target.value })}
-                  placeholder={getProviderDefaultImageModel(draft.activeProvider)}
-                  list="api-image-models"
-                  className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
-                />
-                <datalist id="api-image-models">
-                  {activeImageModels.map((model) => (
-                    <option key={model.value} value={model.value}>{model.label}</option>
-                  ))}
-                </datalist>
-                <p className="text-xs text-stone-500 leading-relaxed">{copy.imageModelHint}</p>
-              </label>
-
-              <label className="block space-y-1.5">
-                <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">{copy.helperModel}</span>
-                <input
-                  type="text"
-                  value={activeDraft.textModel}
-                  onChange={(event) => updateProviderDraft(draft.activeProvider, { textModel: event.target.value })}
-                  placeholder={getProviderDefaultTextModel(draft.activeProvider)}
-                  list="api-helper-models"
-                  className="w-full p-3 rounded-xl border-2 border-stone-200 bg-stone-50 text-sm font-bold text-stone-800 focus:border-orange-400 focus:bg-white outline-none"
-                />
-                <datalist id="api-helper-models">
-                  {activeTextModels.map((model) => (
-                    <option key={model.value} value={model.value}>{model.label}</option>
-                  ))}
-                </datalist>
-                <p className="text-xs text-stone-500 leading-relaxed">{copy.helperHint}</p>
-              </label>
-
-              <div className="rounded-xl border border-orange-100 bg-orange-50/60 p-3 space-y-2">
-                <p className="text-xs font-black text-orange-800">
-                  {language === 'zh' ? `${activeProviderLabel} 模型建议` : `${activeProviderLabel} model suggestions`}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {activeImageModels.map((model) => (
-                    <span key={model.value} className="px-2 py-1 rounded-lg bg-white border border-orange-100 text-[11px] font-bold text-orange-700">
-                      {model.value}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-orange-700 leading-relaxed">{copy.imageModelHint}</p>
-              </div>
-            </div>
-
-            <div className="p-5 bg-stone-50 border-t border-stone-100 flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
+            <div className="relative flex items-center justify-between px-4 h-11 flex-shrink-0 border-b border-[rgba(60,60,67,0.12)]">
               <button
                 type="button"
-                onClick={handleResetSettings}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-stone-200 text-stone-600 hover:text-stone-900 font-bold text-xs"
+                onClick={() => setIsSettingsOpen(false)}
+                className="min-w-[52px] text-left text-[17px] text-[#007AFF] active:opacity-60"
               >
-                <RotateCcw size={14} />
-                {copy.reset}
+                {copy.cancel}
               </button>
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
+                <h2 className="text-[17px] font-semibold text-black leading-tight">{copy.settings}</h2>
+                <p className={`text-[11px] leading-tight ${draftProviderConfigured ? 'text-[#34C759]' : 'text-[#FF9500]'}`}>
+                  {activeProviderLabel} · {draftProviderConfigured ? copy.configured : copy.missing}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={handleSaveSettings}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-rose-500 text-white font-black text-xs shadow-lg shadow-orange-200 hover:to-rose-600"
+                className="min-w-[52px] text-right text-[17px] font-semibold text-[#007AFF] active:opacity-60"
               >
                 {copy.save}
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-6">
+              <section>
+                <p className={iosSectionClass}>{copy.provider}</p>
+                <div className="flex p-1 rounded-[9px] bg-[rgba(120,120,128,0.16)]">
+                  {providerOptions.map((provider) => {
+                    const isActive = draft.activeProvider === provider.id;
+                    return (
+                      <button
+                        key={provider.id}
+                        type="button"
+                        onClick={() => setDraft(prev => ({ ...prev, activeProvider: provider.id }))}
+                        className={`flex-1 rounded-[7px] py-1.5 text-[13px] font-medium transition-all active:scale-[0.98] ${
+                          isActive
+                            ? 'bg-white text-black shadow-sm'
+                            : 'text-[rgba(60,60,67,0.6)]'
+                        }`}
+                      >
+                        <span className="hidden sm:inline">{provider.label}</span>
+                        <span className="sm:hidden">{provider.shortLabel}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section>
+                <p className={iosSectionClass}>{copy.configSection}</p>
+                <div className={iosGroupClass}>
+                  <label className={`${iosRowClass} block`}>
+                    <span className="text-[13px] text-[rgba(60,60,67,0.6)]">{copy.apiKey}</span>
+                    <div className="relative mt-1">
+                      <input
+                        type={isApiKeyVisible ? 'text' : 'password'}
+                        value={activeDraft.apiKey}
+                        onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
+                        placeholder={copy.apiKeyPlaceholder}
+                        className="ios-input w-full bg-transparent pr-10 text-[17px] text-black placeholder:text-[rgba(60,60,67,0.3)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsApiKeyVisible(prev => !prev)}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-[#007AFF] active:opacity-60"
+                        aria-label={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
+                      >
+                        {isApiKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </label>
+                  <label className={`${iosRowClass} block`}>
+                    <span className="text-[13px] text-[rgba(60,60,67,0.6)]">{copy.endpoint}</span>
+                    <input
+                      type="url"
+                      value={activeDraft.endpoint}
+                      onChange={(event) => updateProviderDraft(draft.activeProvider, { endpoint: event.target.value })}
+                      placeholder={getProviderDefaultEndpoint(draft.activeProvider)}
+                      className="ios-input mt-1 w-full bg-transparent text-[17px] text-black"
+                    />
+                  </label>
+                </div>
+                <p className={iosFootnoteClass}>{copy.endpointHint}</p>
+              </section>
+
+              <section>
+                <p className={iosSectionClass}>{copy.modelsSection}</p>
+                <div className={iosGroupClass}>
+                  <div className={iosRowClass}>
+                    <span className="mb-2.5 block text-[17px] text-black">{copy.imageModel}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {activeImageModels.map((model) => (
+                        <button
+                          key={model.value}
+                          type="button"
+                          onClick={() => updateProviderDraft(draft.activeProvider, { imageModel: model.value })}
+                          className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(activeDraft.imageModel === model.value)}`}
+                        >
+                          {model.value}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => updateProviderDraft(draft.activeProvider, {
+                          imageModel: isCustomImageModel ? activeDraft.imageModel : '',
+                        })}
+                        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(isCustomImageModel)}`}
+                      >
+                        {copy.customModel}
+                      </button>
+                    </div>
+                    {isCustomImageModel && (
+                      <input
+                        type="text"
+                        value={activeDraft.imageModel}
+                        onChange={(event) => updateProviderDraft(draft.activeProvider, { imageModel: event.target.value })}
+                        placeholder={getProviderDefaultImageModel(draft.activeProvider)}
+                        className="ios-input mt-3 w-full rounded-[10px] bg-[#F2F2F7] px-3 py-2.5 text-[15px] text-black"
+                      />
+                    )}
+                  </div>
+
+                  <div className={iosRowClass}>
+                    <span className="mb-2.5 block text-[17px] text-black">{copy.helperModel}</span>
+                    <div className="flex flex-wrap gap-2">
+                      {activeTextModels.map((model) => (
+                        <button
+                          key={model.value}
+                          type="button"
+                          onClick={() => updateProviderDraft(draft.activeProvider, { textModel: model.value })}
+                          className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(activeDraft.textModel === model.value)}`}
+                        >
+                          {model.value}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => updateProviderDraft(draft.activeProvider, {
+                          textModel: isCustomTextModel ? activeDraft.textModel : '',
+                        })}
+                        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(isCustomTextModel)}`}
+                      >
+                        {copy.customModel}
+                      </button>
+                    </div>
+                    {isCustomTextModel && (
+                      <input
+                        type="text"
+                        value={activeDraft.textModel}
+                        onChange={(event) => updateProviderDraft(draft.activeProvider, { textModel: event.target.value })}
+                        placeholder={getProviderDefaultTextModel(draft.activeProvider)}
+                        className="ios-input mt-3 w-full rounded-[10px] bg-[#F2F2F7] px-3 py-2.5 text-[15px] text-black"
+                      />
+                    )}
+                  </div>
+                </div>
+                <p className={iosFootnoteClass}>{copy.imageModelHint} {copy.helperHint}</p>
+              </section>
+
+              <section>
+                <div className={iosGroupClass}>
+                  <button
+                    type="button"
+                    onClick={() => setShowHelp(prev => !prev)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left active:bg-[rgba(120,120,128,0.08)]"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <HelpCircle size={18} className="text-[#007AFF]" />
+                      <span className="text-[17px] text-black">{copy.helpTitle}</span>
+                    </div>
+                    <ChevronDown
+                      size={16}
+                      className={`text-[rgba(60,60,67,0.3)] transition-transform ${showHelp ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {showHelp && (
+                    <div className="border-t border-[rgba(60,60,67,0.12)] px-4 py-3 space-y-3">
+                      <p className="text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]">{copy.disclaimerDescription}</p>
+
+                      <div className="rounded-[10px] bg-[#F2F2F7] px-3 py-3">
+                        <p className="text-[15px] font-medium text-black">{activeOfficialOption.name}</p>
+                        <p className="mt-1 text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)] break-all">
+                          {activeOfficialOption.endpoint}
+                        </p>
+                        <a
+                          href={activeOfficialOption.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 text-[15px] text-[#007AFF] active:opacity-60"
+                        >
+                          {copy.officialAction}
+                          <ExternalLink size={14} />
+                        </a>
+                      </div>
+
+                      <p className="text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]">
+                        {copy.proxyDescription}{' '}
+                        <a
+                          href="https://api.gpt.ge/register?aff=qMCL"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[#007AFF]"
+                        >
+                          {copy.proxyAction}
+                        </a>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            <div className="flex-shrink-0 border-t border-[rgba(60,60,67,0.12)] bg-[#F2F2F7] px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={handleResetSettings}
+                className="flex w-full items-center justify-center gap-1.5 py-2 text-[15px] text-[#FF3B30] active:opacity-60"
+              >
+                <RotateCcw size={15} />
+                {copy.reset}
               </button>
             </div>
           </div>

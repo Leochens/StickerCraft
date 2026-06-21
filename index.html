@@ -19,12 +19,35 @@
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <!-- Additional Fonts for Sticker Text -->
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Pacifico&family=Orbitron:wght@400;700&family=Creepster&family=Abril+Fatface&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --ios-bg: #F2F2F7;
+        --ios-group: #FFFFFF;
+        --ios-label: rgba(60, 60, 67, 0.6);
+        --ios-text: #000000;
+        --ios-blue: #007AFF;
+        --ios-separator: rgba(60, 60, 67, 0.12);
+        --ios-fill: rgba(120, 120, 128, 0.12);
+      }
       body {
-        font-family: 'Nunito', sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
       }
       h1, h2, h3, h4, h5, h6, .display-font {
-        font-family: 'Fredoka', sans-serif;
+        font-family: 'Fredoka', -apple-system, BlinkMacSystemFont, sans-serif;
+      }
+      .ios-sheet {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .ios-input {
+        font-family: inherit;
+      }
+      .ios-input::placeholder {
+        color: rgba(60, 60, 67, 0.3);
+      }
+      .ios-input:focus {
+        outline: none;
       }
       /* Custom scrollbar for a polished look */
       ::-webkit-scrollbar {
@@ -35,11 +58,11 @@
         background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #fdba74; /* orange-300 */
+        background: rgba(120, 120, 128, 0.35);
         border-radius: 4px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #f97316; /* orange-500 */
+        background: rgba(120, 120, 128, 0.5);
       }
     </style>
   <script type="importmap">
