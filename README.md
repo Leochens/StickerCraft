@@ -50,6 +50,7 @@ The app runs entirely in the browser and lets users configure their API provider
 - Reference image support for image-to-image sticker generation.
 - Controls for aspect ratio, quantity, white sticker border, facial features, three-view sheets, text, and background color.
 - Transparent PNG workflow: when background is disabled, StickerCraft generates on a controlled solid background and then removes the connected background from the canvas edges.
+- Bead pattern sheets: convert generated or uploaded stickers into coded bead grids with approximate brand palettes and material lists.
 - Asset readiness labels in the gallery and preview modal, including transparent PNG, background kept, white border, text, reference image, and uploaded asset states.
 - Runtime API settings for Gemini or GPT/OpenAI-compatible image and text models.
 - Flexible custom model IDs for compatible proxy services.
@@ -65,7 +66,8 @@ StickerCraft is designed around the practical steps people usually need after im
 3. Choose whether the output should be a transparent sticker asset or keep a visible background.
 4. Generate centered sticker-style PNGs.
 5. Review asset status in the gallery.
-6. Download individual PNGs or selected batches as a ZIP.
+6. Convert a sticker into a bead pattern sheet, then export the PNG pattern or CSV material list.
+7. Download individual PNGs or selected batches as a ZIP.
 
 ### Real Transparent PNG vs Fake Checkerboard
 

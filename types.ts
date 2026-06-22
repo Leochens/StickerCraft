@@ -118,6 +118,53 @@ export interface StickerSplitSource {
   cropAdjustments?: CropAdjustments;
 }
 
+export type BeadPaletteBrand = 'perler' | 'hama' | 'artkal' | 'mard';
+
+export interface BeadPaletteColor {
+  id: string;
+  name: string;
+  hex: string;
+  rgb: {
+    r: number;
+    g: number;
+    b: number;
+  };
+}
+
+export interface BeadPalette {
+  brand: BeadPaletteBrand;
+  label: string;
+  colors: BeadPaletteColor[];
+}
+
+export interface BeadPatternOptions {
+  paletteBrand: BeadPaletteBrand;
+  width: number;
+  maxColors: number;
+  ignoreTransparent: boolean;
+}
+
+export interface BeadPatternCell {
+  x: number;
+  y: number;
+  colorId?: string;
+  hex?: string;
+  transparent?: boolean;
+}
+
+export interface BeadPattern {
+  width: number;
+  height: number;
+  palette: BeadPalette;
+  cells: BeadPatternCell[];
+  materialList: Array<{
+    color: BeadPaletteColor;
+    count: number;
+  }>;
+  totalBeads: number;
+  createdAt: number;
+}
+
 export interface GenerationState {
   isGenerating: boolean;
   progress: number; // 0 to 100

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, Maximize2, Check, RefreshCw, Scissors, Eraser, Trash2, Layers3 } from 'lucide-react';
+import { Download, Maximize2, Check, RefreshCw, Scissors, Eraser, Trash2, Layers3, Grid3X3 } from 'lucide-react';
 import { GeneratedImage } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -13,6 +13,7 @@ interface StickerCardProps {
   onRepairTransparency?: (image: GeneratedImage) => void;
   onSplitCollection?: (image: GeneratedImage) => boolean | void | Promise<boolean | void>;
   onOpenCollection?: (image: GeneratedImage) => void;
+  onOpenBeadPattern?: (image: GeneratedImage) => void;
   onDelete?: (id: string) => void;
   isRegenerating?: boolean;
   isRepairingTransparency?: boolean;
@@ -29,6 +30,7 @@ const StickerCard: React.FC<StickerCardProps> = ({
   onRepairTransparency,
   onSplitCollection,
   onOpenCollection,
+  onOpenBeadPattern,
   onDelete,
   isRegenerating = false,
   isRepairingTransparency = false,
@@ -52,6 +54,7 @@ const StickerCard: React.FC<StickerCardProps> = ({
         splitCollection: '一键切分',
         manageCollection: '切分管理',
         splitReady: '已切分',
+        beadPattern: '拼豆图纸',
         regenerate: '重新生成',
         download: '下载 PNG',
         preview: '预览大图',
@@ -72,6 +75,7 @@ const StickerCard: React.FC<StickerCardProps> = ({
         splitCollection: 'Split stickers',
         manageCollection: 'Manage split',
         splitReady: 'split',
+        beadPattern: 'Bead pattern',
         regenerate: 'Regenerate',
         download: 'Download PNG',
         preview: 'Preview',
@@ -247,6 +251,17 @@ const StickerCard: React.FC<StickerCardProps> = ({
                    >
                      <Scissors size={15} />
                      <span className={tooltipClass}>{splitItemCount > 0 ? copy.manageCollection : copy.splitCollection}</span>
+                   </button>
+                 )}
+                 {onOpenBeadPattern && (
+                   <button
+                     onClick={(e) => { e.stopPropagation(); onOpenBeadPattern(image); }}
+                     className="group/tooltip relative inline-flex h-8 w-8 items-center justify-center rounded-full text-cyan-700 transition-all hover:bg-cyan-50 hover:text-cyan-900"
+                     aria-label={copy.beadPattern}
+                     title={copy.beadPattern}
+                   >
+                     <Grid3X3 size={15} />
+                     <span className={tooltipClass}>{copy.beadPattern}</span>
                    </button>
                  )}
                  {onRegenerate && (

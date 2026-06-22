@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { GeneratedImage, CropAdjustments } from '../types';
 import StickerCard from './StickerCard';
+import BeadPatternModal from './BeadPatternModal';
 import {
   Archive,
   CheckSquare,
   Download,
+  Grid3X3,
   Image,
   Layers3,
   LayoutPanelLeft,
@@ -93,6 +95,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
   const [cropAdjustments, setCropAdjustments] = useState<CropAdjustments>(ZERO_CROP);
   const [isApplyingCrop, setIsApplyingCrop] = useState(false);
   const [isCollectionZipping, setIsCollectionZipping] = useState(false);
+  const [beadPatternImage, setBeadPatternImage] = useState<GeneratedImage | null>(null);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<string | null>(null);
@@ -228,7 +231,16 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
     if (activeCollectionId && !imageIds.has(activeCollectionId)) {
       setActiveCollectionId(null);
     }
-  }, [images, activeCollectionId]);
+
+    const beadPatternImageExists = beadPatternImage && images.some(image => (
+      image.id === beadPatternImage.id ||
+      image.collectionItems?.some(item => item.id === beadPatternImage.id)
+    ));
+
+    if (beadPatternImage && !beadPatternImageExists) {
+      setBeadPatternImage(null);
+    }
+  }, [images, activeCollectionId, beadPatternImage]);
 
   useEffect(() => {
     if (!categories.includes(selectedCategory)) {
@@ -664,6 +676,13 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                         >
                           <Download size={14} />
                         </button>
+                        <button
+                          onClick={() => setBeadPatternImage(item)}
+                          className="rounded-full p-1.5 text-stone-500 hover:bg-cyan-50 hover:text-cyan-700 transition-colors"
+                          title={language === 'zh' ? '拼豆图纸' : 'Bead pattern'}
+                        >
+                          <Grid3X3 size={14} />
+                        </button>
                         {onDeleteCollectionItem && (
                           <button
                             onClick={() => onDeleteCollectionItem(activeCollection.id, item.id)}
@@ -892,6 +911,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             onRepairTransparency={onRepairTransparency}
             onSplitCollection={onSplitCollection}
             onOpenCollection={openCollection}
+            onOpenBeadPattern={setBeadPatternImage}
             isSelected={selectedIds.has(img.id)}
             onToggleSelection={toggleSelection}
             selectionMode={selectedIds.size > 0}
@@ -956,6 +976,12 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
 
       {uploadModal}
       {collectionModal}
+      {beadPatternImage && (
+        <BeadPatternModal
+          image={beadPatternImage}
+          onClose={() => setBeadPatternImage(null)}
+        />
+      )}
     </div>
   );
 };
