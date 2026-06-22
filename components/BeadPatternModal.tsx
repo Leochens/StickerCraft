@@ -62,6 +62,7 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
         beads: '颗',
         colors: '色',
         materials: '材料清单',
+        hex: '参考色值',
         exportPng: '导出 PNG',
         exportCsv: '导出 CSV',
         generating: '正在生成图纸...',
@@ -82,6 +83,7 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
         beads: 'beads',
         colors: 'colors',
         materials: 'Materials',
+        hex: 'Reference hex',
         exportPng: 'Export PNG',
         exportCsv: 'Export CSV',
         generating: 'Generating pattern...',
@@ -313,7 +315,11 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
 
               <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
                 {pattern?.materialList.map((item) => (
-                  <div key={item.color.id} className="grid grid-cols-[22px_1fr_auto] items-center gap-2 rounded-xl border border-stone-100 bg-stone-50 px-2.5 py-2">
+                  <div
+                    key={item.color.id}
+                    className="grid grid-cols-[22px_1fr_auto] items-center gap-2 rounded-xl border border-stone-100 bg-stone-50 px-2.5 py-2"
+                    title={`${copy.hex}: ${item.color.hex}`}
+                  >
                     <span
                       className="h-5 w-5 rounded-full border border-stone-200"
                       style={{ backgroundColor: item.color.hex }}
@@ -321,6 +327,9 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
                     <div className="min-w-0">
                       <p className="truncate text-xs font-black text-stone-700">{item.color.id}</p>
                       <p className="truncate text-[10px] font-semibold text-stone-400">{item.color.name}</p>
+                      <code className="mt-1 inline-flex rounded-md border border-stone-200 bg-white px-1.5 py-0.5 text-[10px] font-black uppercase text-stone-500">
+                        {item.color.hex}
+                      </code>
                     </div>
                     <span className="text-xs font-black text-stone-700">{item.count}</span>
                   </div>

@@ -279,14 +279,14 @@ export const renderBeadPatternToCanvas = (
 ) => {
   const cellSize = pattern.width > 48 ? 16 : pattern.width > 32 ? 20 : 26;
   const margin = 42;
-  const legendWidth = 320;
+  const legendWidth = 360;
   const headerHeight = 80;
   const footerHeight = 34;
   const canvas = document.createElement('canvas');
   canvas.width = margin * 2 + pattern.width * cellSize + legendWidth;
   canvas.height = Math.max(
     headerHeight + margin + pattern.height * cellSize + footerHeight,
-    headerHeight + pattern.materialList.length * 28 + 80,
+    headerHeight + pattern.materialList.length * 34 + 80,
   );
 
   const ctx = canvas.getContext('2d');
@@ -336,14 +336,18 @@ export const renderBeadPatternToCanvas = (
   ctx.font = '700 12px Arial, sans-serif';
   pattern.materialList.forEach((item) => {
     ctx.fillStyle = item.color.hex;
-    ctx.fillRect(legendX, legendY - 14, 18, 18);
+    ctx.fillRect(legendX, legendY - 15, 18, 18);
     ctx.strokeStyle = '#d6d3d1';
-    ctx.strokeRect(legendX, legendY - 14, 18, 18);
+    ctx.strokeRect(legendX, legendY - 15, 18, 18);
     ctx.fillStyle = '#292524';
     ctx.fillText(`${item.color.id} · ${item.color.name}`, legendX + 28, legendY);
     ctx.fillStyle = '#78716c';
-    ctx.fillText(`${item.count}`, legendX + 220, legendY);
-    legendY += 26;
+    ctx.fillText(item.color.hex.toUpperCase(), legendX + 28, legendY + 14);
+    ctx.fillStyle = '#292524';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${item.count}`, legendX + 270, legendY);
+    ctx.textAlign = 'left';
+    legendY += 34;
   });
 
   ctx.fillStyle = '#a8a29e';

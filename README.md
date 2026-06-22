@@ -66,7 +66,7 @@ StickerCraft is designed around the practical steps people usually need after im
 3. Choose whether the output should be a transparent sticker asset or keep a visible background.
 4. Generate centered sticker-style PNGs.
 5. Review asset status in the gallery.
-6. Convert a sticker into a bead pattern sheet, then export the PNG pattern or CSV material list.
+6. Convert a sticker into a bead pattern sheet, then export the PNG pattern or a CSV material list with bead code, color name, reference Hex, and count.
 7. Download individual PNGs or selected batches as a ZIP.
 
 ### Real Transparent PNG vs Fake Checkerboard
