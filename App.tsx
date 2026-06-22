@@ -511,40 +511,40 @@ const App: React.FC = () => {
 
         {/* Right Area (Desktop): Sticker Canvas / Gallery */}
         <div className="flex-1 bg-stone-100/50 relative overflow-y-auto custom-scrollbar p-4 md:p-8">
-           <div className="mx-auto flex min-h-full max-w-[1800px] flex-col">
-             {/* Header for the canvas area */}
-             <div className="mb-6">
-                <h2 className="text-3xl font-extrabold text-stone-800 tracking-tight">
-                  {assetCopy.galleryTitlePrefix} <span className="text-orange-500">{assetCopy.galleryTitleAccent}</span>
-                </h2>
-                <p className="text-stone-500 mt-1">
-                  {assetCopy.galleryDescription}
-                </p>
-             </div>
-
-             <div className="grid flex-grow gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-               <div className="min-w-0">
-                 <GeneratedGrid
-                    images={images}
-                    isGenerating={isGenerating}
-                    pendingQuantity={pendingQuantity}
-                    onPreview={setPreviewImage}
-                    onDelete={handleDeleteImage}
-                    onDeleteMany={handleDeleteImages}
-                    onRegenerate={handleRegenerate}
-                    onRepairTransparency={handleRepairTransparency}
-                    onSplitCollection={handleSplitCollection}
-                    onManualSplitCollection={handleManualSplitCollection}
-                    onCropCollectionItem={handleCropCollectionItem}
-                    onDeleteCollectionItem={handleDeleteCollectionItem}
-                    regeneratingIds={regeneratingIds}
-                    transparencyRepairIds={transparencyRepairIds}
-                    splittingCollectionIds={splittingCollectionIds}
-                    onUploadImage={handleImageUpload}
-                  />
+           <div className="mx-auto grid min-h-full max-w-[1800px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+             <div className="min-w-0">
+               {/* Header for the canvas area */}
+               <div className="mb-6">
+                 <h2 className="text-3xl font-extrabold text-stone-800 tracking-tight">
+                   {assetCopy.galleryTitlePrefix} <span className="text-orange-500">{assetCopy.galleryTitleAccent}</span>
+                 </h2>
+                 <p className="text-stone-500 mt-1">
+                   {assetCopy.galleryDescription}
+                 </p>
                </div>
-               <GalleryHelpRail />
+
+               <div className="flex-grow">
+                 <GeneratedGrid
+                   images={images}
+                   isGenerating={isGenerating}
+                   pendingQuantity={pendingQuantity}
+                   onPreview={setPreviewImage}
+                   onDelete={handleDeleteImage}
+                   onDeleteMany={handleDeleteImages}
+                   onRegenerate={handleRegenerate}
+                   onRepairTransparency={handleRepairTransparency}
+                   onSplitCollection={handleSplitCollection}
+                   onManualSplitCollection={handleManualSplitCollection}
+                   onCropCollectionItem={handleCropCollectionItem}
+                   onDeleteCollectionItem={handleDeleteCollectionItem}
+                   regeneratingIds={regeneratingIds}
+                   transparencyRepairIds={transparencyRepairIds}
+                   splittingCollectionIds={splittingCollectionIds}
+                   onUploadImage={handleImageUpload}
+                 />
+               </div>
              </div>
+             <GalleryHelpRail />
            </div>
         </div>
 

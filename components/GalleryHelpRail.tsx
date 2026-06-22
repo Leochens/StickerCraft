@@ -1,5 +1,5 @@
-import React from 'react';
-import { Eraser, Grid3X3, HelpCircle, Layers3, PackageCheck, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronDown, Eraser, Grid3X3, HelpCircle, Layers3, PackageCheck, Sparkles } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 type HelpItem = {
@@ -12,6 +12,7 @@ type HelpItem = {
 
 const GalleryHelpRail: React.FC = () => {
   const { language } = useLanguage();
+  const [activeItemId, setActiveItemId] = useState('beads');
 
   const copy = language === 'zh'
     ? {
@@ -97,32 +98,63 @@ const GalleryHelpRail: React.FC = () => {
         ] satisfies HelpItem[],
       };
 
+  const toggleItem = (id: string) => {
+    setActiveItemId(prev => (prev === id ? '' : id));
+  };
+
   return (
-    <aside className="hidden xl:flex xl:max-h-[calc(100vh-9rem)] xl:min-h-[520px] xl:flex-col xl:overflow-hidden xl:border-l xl:border-orange-100 xl:pl-5">
-      <div className="mb-3 flex items-start gap-3">
-        <span className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
+    <aside className="hidden xl:sticky xl:top-0 xl:flex xl:max-h-[calc(100vh-6rem)] xl:self-start xl:flex-col xl:overflow-hidden xl:border-l xl:border-orange-100 xl:pl-5">
+      <div className="mb-2 flex items-start gap-3">
+        <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600">
           <HelpCircle size={19} />
         </span>
         <div className="min-w-0">
           <h3 className="text-sm font-black uppercase tracking-wide text-stone-800">{copy.title}</h3>
-          <p className="mt-1 text-xs font-semibold leading-relaxed text-stone-500">{copy.subtitle}</p>
+          <p className="mt-0.5 text-xs font-semibold leading-relaxed text-stone-500">{copy.subtitle}</p>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 custom-scrollbar">
         {copy.items.map((item) => {
           const Icon = item.icon;
+          const isOpen = activeItemId === item.id;
 
           return (
-            <article key={item.id} className="rounded-2xl border border-stone-100 bg-white p-3 shadow-sm">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-2 py-1 text-[10px] font-black text-stone-500">
-                  <Icon size={12} />
-                  {item.tag}
+            <article
+              key={item.id}
+              className={`overflow-hidden rounded-2xl border bg-white shadow-sm transition-colors ${
+                isOpen ? 'border-orange-100' : 'border-stone-100'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleItem(item.id)}
+                className="flex w-full items-start gap-2.5 p-3 text-left transition-colors hover:bg-orange-50/50"
+                aria-expanded={isOpen}
+              >
+                <span className={`mt-0.5 inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg ${
+                  isOpen ? 'bg-orange-100 text-orange-600' : 'bg-stone-100 text-stone-500'
+                }`}>
+                  <Icon size={14} />
                 </span>
-              </div>
-              <h4 className="text-sm font-black leading-snug text-stone-800">{item.title}</h4>
-              <p className="mt-2 text-xs font-semibold leading-relaxed text-stone-500">{item.body}</p>
+                <span className="min-w-0 flex-1">
+                  <span className="mb-1 inline-flex rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-black text-stone-500">
+                    {item.tag}
+                  </span>
+                  <span className="block text-sm font-black leading-snug text-stone-800">{item.title}</span>
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`mt-1 flex-shrink-0 text-stone-400 transition-transform ${
+                    isOpen ? 'rotate-180 text-orange-500' : ''
+                  }`}
+                />
+              </button>
+              {isOpen && (
+                <div className="border-t border-orange-50 bg-orange-50/30 px-3 pb-3 pt-2">
+                  <p className="text-xs font-semibold leading-relaxed text-stone-600">{item.body}</p>
+                </div>
+              )}
             </article>
           );
         })}
