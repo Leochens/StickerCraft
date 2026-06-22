@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import GeneratedGrid from './components/GeneratedGrid';
+import GalleryHelpRail from './components/GalleryHelpRail';
 import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, CropAdjustments } from './types';
 import { generateStickers } from './services/geminiService';
 import {
@@ -510,7 +511,7 @@ const App: React.FC = () => {
 
         {/* Right Area (Desktop): Sticker Canvas / Gallery */}
         <div className="flex-1 bg-stone-100/50 relative overflow-y-auto custom-scrollbar p-4 md:p-8">
-           <div className="max-w-7xl mx-auto min-h-full flex flex-col">
+           <div className="mx-auto flex min-h-full max-w-[1800px] flex-col">
              {/* Header for the canvas area */}
              <div className="mb-6">
                 <h2 className="text-3xl font-extrabold text-stone-800 tracking-tight">
@@ -521,25 +522,28 @@ const App: React.FC = () => {
                 </p>
              </div>
 
-             <div className="flex-grow">
-               <GeneratedGrid 
-                  images={images} 
-                  isGenerating={isGenerating} 
-                  pendingQuantity={pendingQuantity}
-                  onPreview={setPreviewImage} 
-                  onDelete={handleDeleteImage}
-                  onDeleteMany={handleDeleteImages}
-                  onRegenerate={handleRegenerate}
-                  onRepairTransparency={handleRepairTransparency}
-                  onSplitCollection={handleSplitCollection}
-                  onManualSplitCollection={handleManualSplitCollection}
-                  onCropCollectionItem={handleCropCollectionItem}
-                  onDeleteCollectionItem={handleDeleteCollectionItem}
-                  regeneratingIds={regeneratingIds}
-                  transparencyRepairIds={transparencyRepairIds}
-                  splittingCollectionIds={splittingCollectionIds}
-                  onUploadImage={handleImageUpload}
-                />
+             <div className="grid flex-grow gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+               <div className="min-w-0">
+                 <GeneratedGrid
+                    images={images}
+                    isGenerating={isGenerating}
+                    pendingQuantity={pendingQuantity}
+                    onPreview={setPreviewImage}
+                    onDelete={handleDeleteImage}
+                    onDeleteMany={handleDeleteImages}
+                    onRegenerate={handleRegenerate}
+                    onRepairTransparency={handleRepairTransparency}
+                    onSplitCollection={handleSplitCollection}
+                    onManualSplitCollection={handleManualSplitCollection}
+                    onCropCollectionItem={handleCropCollectionItem}
+                    onDeleteCollectionItem={handleDeleteCollectionItem}
+                    regeneratingIds={regeneratingIds}
+                    transparencyRepairIds={transparencyRepairIds}
+                    splittingCollectionIds={splittingCollectionIds}
+                    onUploadImage={handleImageUpload}
+                  />
+               </div>
+               <GalleryHelpRail />
              </div>
            </div>
         </div>

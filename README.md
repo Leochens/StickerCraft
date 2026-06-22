@@ -51,6 +51,7 @@ The app runs entirely in the browser and lets users configure their API provider
 - Controls for aspect ratio, quantity, white sticker border, facial features, three-view sheets, text, and background color.
 - Transparent PNG workflow: when background is disabled, StickerCraft generates on a controlled solid background and then removes the connected background from the canvas edges.
 - Bead pattern sheets: convert generated or uploaded stickers into coded bead grids with approximate brand palettes and material lists.
+- Help rail: a scrollable gallery-side guide with bead pattern, transparency, sticker set, and export workflow notes.
 - Asset readiness labels in the gallery and preview modal, including transparent PNG, background kept, white border, text, reference image, and uploaded asset states.
 - Runtime API settings for Gemini or GPT/OpenAI-compatible image and text models.
 - Flexible custom model IDs for compatible proxy services.
