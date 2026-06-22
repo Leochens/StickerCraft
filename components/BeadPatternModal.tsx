@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, FileSpreadsheet, Grid3X3, Hash, Palette, RefreshCw, Ruler, X } from 'lucide-react';
 import { BeadPaletteBrand, BeadPattern, BeadPatternOptions, GeneratedImage } from '../types';
 import {
   BEAD_PALETTES,
   beadPatternToCsv,
   generateBeadPatternFromImage,
+  renderBeadPatternPreviewToCanvas,
   renderBeadPatternToCanvas,
 } from '../services/beadPatternService';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -25,18 +26,9 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-const getReadableTextColor = (hex?: string) => {
-  if (!hex) return '#111827';
-  const raw = hex.replace('#', '');
-  const r = parseInt(raw.slice(0, 2), 16);
-  const g = parseInt(raw.slice(2, 4), 16);
-  const b = parseInt(raw.slice(4, 6), 16);
-  const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
-  return luminance > 0.54 ? '#111827' : '#ffffff';
-};
-
 const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) => {
   const { language } = useLanguage();
+  const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [options, setOptions] = useState<BeadPatternOptions>({
     paletteBrand: 'artkal',
     width: 24,
@@ -96,28 +88,36 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
 
   useEffect(() => {
     let cancelled = false;
+    const generationTimer = window.setTimeout(() => {
+      generateBeadPatternFromImage(image.dataUrl, options)
+        .then((nextPattern) => {
+          if (!cancelled) setPattern(nextPattern);
+        })
+        .catch((patternError) => {
+          console.error('Failed to create bead pattern', patternError);
+          if (!cancelled) {
+            setPattern(null);
+            setError(patternError instanceof Error ? patternError.message : copy.empty);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setIsGenerating(false);
+        });
+    }, 120);
+
     setIsGenerating(true);
     setError(null);
 
-    generateBeadPatternFromImage(image.dataUrl, options)
-      .then((nextPattern) => {
-        if (!cancelled) setPattern(nextPattern);
-      })
-      .catch((patternError) => {
-        console.error('Failed to create bead pattern', patternError);
-        if (!cancelled) {
-          setPattern(null);
-          setError(patternError instanceof Error ? patternError.message : copy.empty);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsGenerating(false);
-      });
-
     return () => {
       cancelled = true;
+      window.clearTimeout(generationTimer);
     };
   }, [image.dataUrl, options, copy.empty]);
+
+  useEffect(() => {
+    if (!pattern || isGenerating || !previewCanvasRef.current) return;
+    renderBeadPatternPreviewToCanvas(previewCanvasRef.current, pattern, { showCodes });
+  }, [pattern, showCodes, isGenerating]);
 
   const updateOption = <K extends keyof BeadPatternOptions>(key: K, value: BeadPatternOptions[K]) => {
     setOptions(prev => ({ ...prev, [key]: value }));
@@ -142,13 +142,6 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
       `bead-pattern-${image.id}.csv`,
     );
   };
-
-  const previewGridStyle = pattern
-    ? {
-        gridTemplateColumns: `repeat(${pattern.width}, minmax(0, 1fr))`,
-      }
-    : undefined;
-  const previewCellTextClass = pattern && pattern.width > 36 ? 'text-[5px]' : pattern && pattern.width > 24 ? 'text-[6px]' : 'text-[8px]';
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-950/65 p-4 backdrop-blur-sm">
@@ -272,27 +265,11 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
 
             <div className="min-h-[420px] overflow-auto rounded-2xl bg-white p-4 shadow-inner">
               {pattern && !isGenerating ? (
-                <div
-                  className="mx-auto grid w-full max-w-[780px] border border-stone-300 bg-white"
-                  style={previewGridStyle}
-                >
-                  {pattern.cells.map((cell) => (
-                    <div
-                      key={`${cell.x}-${cell.y}`}
-                      className="aspect-square min-w-[8px] border border-stone-200/80 flex items-center justify-center font-black leading-none"
-                      style={{
-                        backgroundColor: cell.transparent ? '#ffffff' : cell.hex,
-                        color: getReadableTextColor(cell.hex),
-                        textShadow: getReadableTextColor(cell.hex) === '#ffffff' ? '0 1px 1px rgba(0,0,0,0.35)' : '0 1px 1px rgba(255,255,255,0.45)',
-                      }}
-                      title={cell.colorId || 'transparent'}
-                    >
-                      {showCodes && cell.colorId && (
-                        <span className={`${previewCellTextClass} mix-blend-multiply`}>{cell.colorId}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <canvas
+                  ref={previewCanvasRef}
+                  aria-label={`${copy.title} ${pattern.width} x ${pattern.height}`}
+                  className="mx-auto block max-w-none rounded-xl border border-stone-300 bg-white shadow-sm"
+                />
               ) : (
                 <div className="flex min-h-[380px] flex-col items-center justify-center text-center text-stone-400">
                   {isGenerating ? <RefreshCw size={34} className="mb-3 animate-spin" /> : <Grid3X3 size={34} className="mb-3" />}

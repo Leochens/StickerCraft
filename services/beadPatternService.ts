@@ -273,6 +273,100 @@ export const generateBeadPatternFromImage = async (
   };
 };
 
+const getPreviewCellSize = (width: number) => {
+  if (width > 72) return 10;
+  if (width > 56) return 12;
+  if (width > 40) return 14;
+  if (width > 28) return 18;
+  return 24;
+};
+
+const drawBeadPatternGrid = (
+  ctx: CanvasRenderingContext2D,
+  pattern: BeadPattern,
+  options: {
+    cellSize: number;
+    showCodes: boolean;
+    x?: number;
+    y?: number;
+    gridStroke?: string;
+  },
+) => {
+  const { cellSize } = options;
+  const originX = options.x || 0;
+  const originY = options.y || 0;
+  const width = pattern.width * cellSize;
+  const height = pattern.height * cellSize;
+
+  ctx.save();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(originX, originY, width, height);
+
+  pattern.cells.forEach((cell) => {
+    if (cell.transparent) return;
+    ctx.fillStyle = cell.hex || '#ffffff';
+    ctx.fillRect(originX + cell.x * cellSize, originY + cell.y * cellSize, cellSize, cellSize);
+  });
+
+  ctx.strokeStyle = options.gridStroke || '#d6d3d1';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= pattern.width; x += 1) {
+    const position = originX + x * cellSize + 0.5;
+    ctx.moveTo(position, originY);
+    ctx.lineTo(position, originY + height);
+  }
+  for (let y = 0; y <= pattern.height; y += 1) {
+    const position = originY + y * cellSize + 0.5;
+    ctx.moveTo(originX, position);
+    ctx.lineTo(originX + width, position);
+  }
+  ctx.stroke();
+
+  if (options.showCodes && cellSize >= 12) {
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${cellSize >= 20 ? 9 : cellSize >= 16 ? 7 : 5}px Arial, sans-serif`;
+    pattern.cells.forEach((cell) => {
+      if (!cell.colorId) return;
+      const x = originX + cell.x * cellSize + cellSize / 2;
+      const y = originY + cell.y * cellSize + cellSize / 2;
+      ctx.fillStyle = getReadableTextColor(cell.hex);
+      ctx.fillText(cell.colorId, x, y);
+    });
+  }
+
+  ctx.restore();
+};
+
+export const renderBeadPatternPreviewToCanvas = (
+  canvas: HTMLCanvasElement,
+  pattern: BeadPattern,
+  options: { showCodes: boolean },
+) => {
+  const cellSize = getPreviewCellSize(pattern.width);
+  const pixelRatio = typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+  const width = pattern.width * cellSize;
+  const height = pattern.height * cellSize;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not create preview canvas.');
+
+  canvas.width = Math.ceil(width * pixelRatio);
+  canvas.height = Math.ceil(height * pixelRatio);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+
+  ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  drawBeadPatternGrid(ctx, pattern, {
+    cellSize,
+    showCodes: options.showCodes,
+    gridStroke: '#e7e5e4',
+  });
+
+  return { width, height, cellSize };
+};
+
 export const renderBeadPatternToCanvas = (
   pattern: BeadPattern,
   options: { title: string; showCodes: boolean },
@@ -305,23 +399,12 @@ export const renderBeadPatternToCanvas = (
   const gridY = headerHeight + 18;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(gridX - 10, gridY - 10, pattern.width * cellSize + 20, pattern.height * cellSize + 20);
-
-  pattern.cells.forEach((cell) => {
-    const x = gridX + cell.x * cellSize;
-    const y = gridY + cell.y * cellSize;
-    ctx.fillStyle = cell.transparent ? '#ffffff' : cell.hex || '#ffffff';
-    ctx.fillRect(x, y, cellSize, cellSize);
-    ctx.strokeStyle = '#d6d3d1';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, cellSize, cellSize);
-
-    if (options.showCodes && cell.colorId && cellSize >= 16) {
-      ctx.fillStyle = getReadableTextColor(cell.hex);
-      ctx.font = `${cellSize >= 22 ? 9 : 7}px Arial, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(cell.colorId, x + cellSize / 2, y + cellSize / 2);
-    }
+  drawBeadPatternGrid(ctx, pattern, {
+    cellSize,
+    showCodes: options.showCodes && cellSize >= 16,
+    x: gridX,
+    y: gridY,
+    gridStroke: '#d6d3d1',
   });
 
   ctx.textAlign = 'left';
