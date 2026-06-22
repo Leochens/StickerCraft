@@ -36,6 +36,14 @@
   <img src="./docs/images/showcase.png" alt="StickerCraft AI screenshot" />
 </p>
 
+## Star History
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Leochens/StickerCraft&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Leochens/StickerCraft&type=Date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Leochens/StickerCraft&type=Date" />
+</picture>
+
 ## Overview
 
 StickerCraft AI is a React + Vite sticker generation app originally prototyped in Google AI Studio. It turns text prompts into stylized sticker assets and supports reference images, custom styles, text overlays, controlled-background generation, transparent PNG cleanup, gallery management, and ZIP export.

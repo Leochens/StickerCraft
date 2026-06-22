@@ -36,6 +36,14 @@
   <img src="./docs/images/showcase.png" alt="StickerCraft AI 界面截图" />
 </p>
 
+## Star History
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Leochens/StickerCraft&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Leochens/StickerCraft&type=Date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Leochens/StickerCraft&type=Date" />
+</picture>
+
 ## 项目介绍
 
 StickerCraft AI 是一个基于 React + Vite 的贴纸生成工具，最初由 Google AI Studio 原型开发而来。它可以把自然语言提示词转换成多种风格的贴纸素材，并支持参考图、批量提示词、贴纸白边、透明背景处理、文字贴纸、三视图设定图、自定义风格、图库管理和 ZIP 下载。
