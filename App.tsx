@@ -34,6 +34,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const [mobileTab, setMobileTab] = useState<MobileTab>('create');
+  const [isHelpRailCollapsed, setIsHelpRailCollapsed] = useState(false);
   
   // Custom Styles State
   const [customStyles, setCustomStyles] = useState<StickerStyle[]>([]);
@@ -498,7 +499,9 @@ const App: React.FC = () => {
         <div className={`flex-1 bg-stone-100/50 relative overflow-y-auto custom-scrollbar p-4 md:p-8 min-h-0 ${
           mobileTab === 'create' ? 'hidden md:block' : 'block'
         }`}>
-           <div className="mx-auto grid min-h-full max-w-[1800px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+           <div className={`mx-auto min-h-full max-w-[1800px] ${
+             isHelpRailCollapsed ? 'block' : 'grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]'
+           }`}>
              <div className="min-w-0">
                <div className="mb-6">
                  <h2 className="text-3xl font-extrabold text-stone-800 tracking-tight">
@@ -531,8 +534,19 @@ const App: React.FC = () => {
                  />
                </div>
              </div>
-             <GalleryHelpRail />
+             {!isHelpRailCollapsed && (
+               <GalleryHelpRail
+                 isCollapsed={false}
+                 onCollapsedChange={setIsHelpRailCollapsed}
+               />
+             )}
            </div>
+           {isHelpRailCollapsed && (
+             <GalleryHelpRail
+               isCollapsed
+               onCollapsedChange={setIsHelpRailCollapsed}
+             />
+           )}
         </div>
 
       </main>

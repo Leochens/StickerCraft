@@ -16,7 +16,12 @@ type HelpGroup = {
   items: HelpItem[];
 };
 
-const GalleryHelpRail: React.FC = () => {
+interface GalleryHelpRailProps {
+  isCollapsed: boolean;
+  onCollapsedChange: (isCollapsed: boolean) => void;
+}
+
+const GalleryHelpRail: React.FC<GalleryHelpRailProps> = ({ isCollapsed, onCollapsedChange }) => {
   const { language } = useLanguage();
   const [activeItemByGroup, setActiveItemByGroup] = useState<Record<string, string>>({
     beads: 'beads-upload',
@@ -24,9 +29,11 @@ const GalleryHelpRail: React.FC = () => {
   });
 
   const copy = language === 'zh'
-    ? {
+      ? {
         title: '使用帮助',
         subtitle: '一些容易忽略但很实用的工作流提示。',
+        collapseLabel: '收起使用帮助',
+        expandLabel: '展开使用帮助',
         groups: [
           {
             id: 'beads',
@@ -100,6 +107,8 @@ const GalleryHelpRail: React.FC = () => {
     : {
         title: 'Help',
         subtitle: 'Useful workflow notes that are easy to miss.',
+        collapseLabel: 'Collapse help',
+        expandLabel: 'Expand help',
         groups: [
           {
             id: 'beads',
@@ -178,6 +187,20 @@ const GalleryHelpRail: React.FC = () => {
     }));
   };
 
+  if (isCollapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => onCollapsedChange(false)}
+        className="hidden xl:fixed xl:right-6 xl:top-24 xl:z-30 xl:inline-flex xl:h-11 xl:w-11 xl:items-center xl:justify-center xl:rounded-full xl:border xl:border-orange-100 xl:bg-white xl:text-orange-600 xl:shadow-lg xl:shadow-orange-100/60 xl:transition-colors xl:hover:bg-orange-50 xl:focus-visible:outline-none xl:focus-visible:ring-2 xl:focus-visible:ring-orange-400 xl:focus-visible:ring-offset-2"
+        aria-label={copy.expandLabel}
+        title={copy.expandLabel}
+      >
+        <HelpCircle size={22} />
+      </button>
+    );
+  }
+
   return (
     <aside className="hidden xl:sticky xl:top-0 xl:flex xl:max-h-[calc(100vh-6rem)] xl:self-start xl:flex-col xl:overflow-hidden xl:border-l xl:border-orange-100 xl:pl-5">
       <div className="mb-2 flex items-start gap-3">
@@ -188,6 +211,15 @@ const GalleryHelpRail: React.FC = () => {
           <h3 className="text-sm font-black uppercase tracking-wide text-stone-800">{copy.title}</h3>
           <p className="mt-0.5 text-xs font-semibold leading-relaxed text-stone-500">{copy.subtitle}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => onCollapsedChange(true)}
+          className="ml-auto inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-stone-400 transition-colors hover:bg-orange-50 hover:text-orange-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
+          aria-label={copy.collapseLabel}
+          title={copy.collapseLabel}
+        >
+          <ChevronDown size={17} className="-rotate-90" />
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 custom-scrollbar">
