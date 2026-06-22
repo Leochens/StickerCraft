@@ -7,6 +7,7 @@ export enum ModelType {
 export enum APIProvider {
   GEMINI = 'gemini',
   GPT = 'gpt',
+  AGNES = 'agnes',
 }
 
 export interface ProviderAPISettings {
@@ -20,6 +21,7 @@ export interface APISettings {
   activeProvider: APIProvider;
   gemini: ProviderAPISettings;
   gpt: ProviderAPISettings;
+  agnes: ProviderAPISettings;
 }
 
 export enum AspectRatio {
@@ -41,6 +43,7 @@ export interface StickerStyle {
   label_zh?: string; // Chinese label
   promptModifier: string;
   previewColor: string;
+  previewImage?: string;
   icon?: string;
   isCustom?: boolean;
   referenceImage?: string;

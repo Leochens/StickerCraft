@@ -3,6 +3,7 @@ import Header from './components/Header';
 import ControlPanel from './components/ControlPanel';
 import GeneratedGrid from './components/GeneratedGrid';
 import GalleryHelpRail from './components/GalleryHelpRail';
+import MobileTabBar, { MobileTab } from './components/MobileTabBar';
 import { StickerRequest, GeneratedImage, StickerStyle, ModelType, AspectRatio, CropAdjustments } from './types';
 import { generateStickers } from './services/geminiService';
 import {
@@ -16,9 +17,12 @@ import { loadPersistedStickerCraftData, saveCustomStyles, saveGeneratedImages } 
 import { STICKER_STYLES } from './constants';
 import { X, Download, BadgeCheck, FileImage, Layers3, ShieldCheck } from 'lucide-react';
 import { useLanguage } from './contexts/LanguageContext';
+import { CHECKERBOARD_CLASS } from './utils/uiClasses';
+import Badge from './components/ui/Badge';
+import IconButton from './components/ui/IconButton';
 
 const App: React.FC = () => {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -29,6 +33,7 @@ const App: React.FC = () => {
   const [previewImage, setPreviewImage] = useState<GeneratedImage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('create');
   
   // Custom Styles State
   const [customStyles, setCustomStyles] = useState<StickerStyle[]>([]);
@@ -411,43 +416,24 @@ const App: React.FC = () => {
     }
   };
 
-  const assetCopy = language === 'zh'
-    ? {
-        galleryDescription: '快快准备，获得你的贴纸',
-        transparent: '透明 PNG',
-        backgroundKept: '保留背景',
-        uploaded: '上传素材',
-        whiteBorder: '白边',
-        noBorder: '无白边',
-        collection: '贴纸集合',
-        text: '含文字',
-        reference: '参考图',
-        assetReadiness: '素材状态',
-        transparentNote: '透明结果由纯色背景生成后处理得到；复杂发光、头发或半透明边缘仍建议复查。',
-        backgroundNote: '该素材保留了生成背景，适合海报、卡片或需要背景的贴纸图。',
-        uploadedNote: '这是手动上传到图库的素材，透明状态取决于原始文件。',
-        apiTrust: 'API Key 保存在浏览器本地配置中；公开部署前请加后端代理和额度保护。',
-        galleryTitlePrefix: '贴纸',
-        galleryTitleAccent: '图库',
-      }
-    : {
-        galleryDescription: 'Review generated assets, transparency state, and batch export readiness.',
-        transparent: 'Transparent PNG',
-        backgroundKept: 'Background kept',
-        uploaded: 'Uploaded asset',
-        whiteBorder: 'White border',
-        noBorder: 'No border',
-        collection: 'Sticker set',
-        text: 'Text',
-        reference: 'Reference image',
-        assetReadiness: 'Asset readiness',
-        transparentNote: 'Transparency is created from a controlled solid-background workflow; inspect glow, hair, or soft edges before print use.',
-        backgroundNote: 'This asset keeps its generated background for posters, cards, or sticker art that needs a scene.',
-        uploadedNote: 'This was uploaded manually; transparency depends on the original file.',
-        apiTrust: 'API keys stay in browser settings; add a backend proxy and quota protection before public shared deployments.',
-        galleryTitlePrefix: 'Sticker',
-        galleryTitleAccent: 'Gallery',
-      };
+  const assetCopy = {
+    galleryDescription: t('gallery_description'),
+    transparent: t('asset_transparent'),
+    backgroundKept: t('asset_background_kept'),
+    uploaded: t('asset_uploaded'),
+    whiteBorder: t('asset_white_border'),
+    noBorder: t('asset_no_border'),
+    collection: t('asset_collection'),
+    text: t('asset_text'),
+    reference: t('asset_reference'),
+    assetReadiness: t('asset_readiness'),
+    transparentNote: t('asset_transparent_note'),
+    backgroundNote: t('asset_background_note'),
+    uploadedNote: t('asset_uploaded_note'),
+    apiTrust: t('asset_api_trust'),
+    galleryTitlePrefix: t('gallery_title_prefix'),
+    galleryTitleAccent: t('gallery_title_accent'),
+  };
 
   const getPreviewAssetNote = (image: GeneratedImage) => {
     if (image.sourceType === 'uploaded') return assetCopy.uploadedNote;
@@ -477,22 +463,22 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-stone-50 flex flex-col font-sans text-stone-900 overflow-hidden">
+    <div className="min-h-dvh h-dvh bg-stone-50 flex flex-col font-sans text-stone-900 overflow-hidden">
       <Header />
 
-      {/* Main Layout: Flex-col-reverse for mobile (Controls bottom), Flex-row for desktop (Controls Left) */}
-      <main className="flex-1 flex flex-col-reverse md:flex-row overflow-hidden">
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
         
-        {/* Left Area (Desktop): Palette / Control Panel */}
-        <aside className="w-full md:w-[360px] lg:w-[400px] bg-white border-r border-orange-100 shadow-2xl shadow-orange-100/50 z-20 flex flex-col h-[50vh] md:h-auto overflow-hidden flex-shrink-0">
-          <div className="p-5 border-b border-orange-50 bg-white sticky top-0 z-10">
+        <aside className={`w-full md:w-[360px] lg:w-[400px] bg-white border-r border-orange-100 shadow-2xl shadow-orange-100/50 z-20 flex flex-col overflow-hidden flex-shrink-0 min-h-0 ${
+          mobileTab === 'gallery' ? 'hidden md:flex' : 'flex flex-1 md:flex-none md:h-auto'
+        }`}>
+          <div className="p-5 border-b border-orange-50 bg-white sticky top-0 z-10 flex-shrink-0">
             <h3 className="text-lg font-black text-stone-800 uppercase tracking-wide flex items-center gap-2">
                <span className="w-2 h-6 bg-orange-500 rounded-full"></span>
-               Creation Palette
+               {t('creation_palette')}
             </h3>
           </div>
           
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-5 min-h-0">
             <ControlPanel 
               onGenerate={handleGenerate} 
               isGenerating={isGenerating}
@@ -502,18 +488,18 @@ const App: React.FC = () => {
             />
              {error && (
               <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-sm animate-fade-in text-center">
-                <p className="font-bold">Oops!</p>
+                <p className="font-bold">{t('error_oops')}</p>
                 <p>{error}</p>
               </div>
             )}
           </div>
         </aside>
 
-        {/* Right Area (Desktop): Sticker Canvas / Gallery */}
-        <div className="flex-1 bg-stone-100/50 relative overflow-y-auto custom-scrollbar p-4 md:p-8">
+        <div className={`flex-1 bg-stone-100/50 relative overflow-y-auto custom-scrollbar p-4 md:p-8 min-h-0 ${
+          mobileTab === 'create' ? 'hidden md:block' : 'block'
+        }`}>
            <div className="mx-auto grid min-h-full max-w-[1800px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
              <div className="min-w-0">
-               {/* Header for the canvas area */}
                <div className="mb-6">
                  <h2 className="text-3xl font-extrabold text-stone-800 tracking-tight">
                    {assetCopy.galleryTitlePrefix} <span className="text-orange-500">{assetCopy.galleryTitleAccent}</span>
@@ -541,6 +527,7 @@ const App: React.FC = () => {
                    transparencyRepairIds={transparencyRepairIds}
                    splittingCollectionIds={splittingCollectionIds}
                    onUploadImage={handleImageUpload}
+                   onSwitchToCreate={() => setMobileTab('create')}
                  />
                </div>
              </div>
@@ -550,6 +537,13 @@ const App: React.FC = () => {
 
       </main>
 
+      <MobileTabBar
+        activeTab={mobileTab}
+        onTabChange={setMobileTab}
+        galleryCount={images.length}
+        isGenerating={isGenerating}
+      />
+
       {/* Full Screen Image Preview Modal */}
       {previewImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/90 backdrop-blur-sm p-4" onClick={closePreview}>
@@ -558,7 +552,7 @@ const App: React.FC = () => {
             onClick={e => e.stopPropagation()}
           >
             {/* Image Side */}
-            <div className="flex-1 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-stone-100 flex items-center justify-center p-8 min-h-[300px]">
+            <div className={`flex-1 ${CHECKERBOARD_CLASS} flex items-center justify-center p-8 min-h-[300px]`}>
               <img 
                 src={previewImage.dataUrl} 
                 alt={previewImage.prompt}
@@ -571,16 +565,18 @@ const App: React.FC = () => {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <h3 className="font-bold text-xl text-stone-900 mb-1">{t('sticker_details')}</h3>
-                  <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase tracking-wide border border-orange-100">
+                  <Badge variant="orange" size="md" className="uppercase tracking-wide">
                     {previewImage.styleName}
-                  </span>
+                  </Badge>
                 </div>
-                <button 
+                <IconButton
+                  variant="ghost"
+                  size="sm"
+                  icon={<X size={24} />}
+                  aria-label={t('action_cancel')}
                   onClick={closePreview}
-                  className="text-stone-400 hover:text-stone-800 transition-colors"
-                >
-                  <X size={24} />
-                </button>
+                  className="rounded-lg hover:bg-stone-100"
+                />
               </div>
 
               <div className="flex-grow space-y-4">
@@ -597,9 +593,9 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {getPreviewBadges(previewImage).map((badge) => (
-                      <span key={badge} className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-orange-700 border border-orange-100">
+                      <Badge key={badge} variant="orange-outline" size="sm">
                         {badge}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                   <p className="text-xs leading-relaxed text-orange-800">
@@ -640,10 +636,10 @@ const App: React.FC = () => {
                 
                 <button
                    onClick={() => handleDeleteImage(previewImage.id)}
-                   className="flex items-center justify-center gap-2 w-full py-3 bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-600 font-bold rounded-xl transition-colors"
+                   className="flex cursor-pointer items-center justify-center gap-2 w-full py-3 bg-stone-100 hover:bg-rose-50 text-stone-600 hover:text-rose-600 font-bold rounded-xl transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2"
                 >
                    <X size={20} />
-                   Delete
+                   {t('action_delete')}
                 </button>
               </div>
             </div>

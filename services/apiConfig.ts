@@ -12,6 +12,13 @@ export const DEFAULT_GPT_ENDPOINT = "https://api.openai.com/v1/";
 export const DEFAULT_GPT_IMAGE_MODEL = "gpt-image-2";
 export const DEFAULT_GPT_TEXT_MODEL = "gpt-5.4-mini";
 
+export const DEFAULT_AGNES_ENDPOINT = "https://apihub.agnes-ai.com/v1/";
+export const AGNES_PROXY_PREFIX = "/agnes-api";
+export const AGNES_REMOTE_ORIGIN = "https://apihub.agnes-ai.com";
+export const AGNES_ASSET_PROXY_PREFIX = "/agnes-asset-proxy";
+export const DEFAULT_AGNES_IMAGE_MODEL = "agnes-image-2.1-flash";
+export const DEFAULT_AGNES_TEXT_MODEL = "agnes-2.0-flash";
+
 export const OFFICIAL_GEMINI_IMAGE_MODELS = [
   {
     value: ModelType.NANO_BANANA_2,
@@ -87,6 +94,26 @@ export const OFFICIAL_GPT_TEXT_MODELS = [
   },
 ];
 
+export const OFFICIAL_AGNES_IMAGE_MODELS = [
+  {
+    value: "agnes-image-2.1-flash",
+    label: "Agnes Image 2.1 Flash",
+    description: "Recommended Agnes image model for text-to-image and image-to-image",
+  },
+  {
+    value: "agnes-image-2.0-flash",
+    label: "Agnes Image 2.0 Flash",
+    description: "Previous Agnes image model with edit-heavy workflows",
+  },
+];
+
+export const OFFICIAL_AGNES_TEXT_MODELS = [
+  {
+    value: "agnes-2.0-flash",
+    label: "Agnes 2.0 Flash",
+  },
+];
+
 export const OFFICIAL_IMAGE_MODELS = OFFICIAL_GEMINI_IMAGE_MODELS;
 export const OFFICIAL_TEXT_MODELS = OFFICIAL_GEMINI_TEXT_MODELS;
 
@@ -97,6 +124,7 @@ const getEnvValue = (key: string): string => {
 
 const getEnvGeminiApiKey = (): string => getEnvValue("GEMINI_API_KEY") || getEnvValue("API_KEY");
 const getEnvOpenAIApiKey = (): string => getEnvValue("OPENAI_API_KEY");
+const getEnvAgnesApiKey = (): string => getEnvValue("AGNES_API_KEY");
 
 export const getDefaultGeminiSettings = (): ProviderAPISettings => ({
   apiKey: getEnvGeminiApiKey(),
@@ -112,19 +140,28 @@ export const getDefaultGPTSettings = (): ProviderAPISettings => ({
   textModel: DEFAULT_GPT_TEXT_MODEL,
 });
 
+export const getDefaultAgnesSettings = (): ProviderAPISettings => ({
+  apiKey: getEnvAgnesApiKey(),
+  endpoint: DEFAULT_AGNES_ENDPOINT,
+  imageModel: DEFAULT_AGNES_IMAGE_MODEL,
+  textModel: DEFAULT_AGNES_TEXT_MODEL,
+});
+
 export const getDefaultAPISettings = (): APISettings => ({
   activeProvider: APIProvider.GEMINI,
   gemini: getDefaultGeminiSettings(),
   gpt: getDefaultGPTSettings(),
+  agnes: getDefaultAgnesSettings(),
 });
 
-type RawAPISettings = Partial<Omit<APISettings, "gemini" | "gpt">> & {
+type RawAPISettings = Partial<Omit<APISettings, "gemini" | "gpt" | "agnes">> & {
   gemini?: Partial<ProviderAPISettings>;
   gpt?: Partial<ProviderAPISettings>;
+  agnes?: Partial<ProviderAPISettings>;
 };
 
 const isAPIProvider = (value: unknown): value is APIProvider => (
-  value === APIProvider.GEMINI || value === APIProvider.GPT
+  value === APIProvider.GEMINI || value === APIProvider.GPT || value === APIProvider.AGNES
 );
 
 const normalizeEndpoint = (endpoint: string | undefined, fallback: string): string => {
@@ -153,6 +190,7 @@ export const normalizeAPISettings = (raw: RawAPISettings | undefined): APISettin
     activeProvider: isAPIProvider(raw?.activeProvider) ? raw.activeProvider : defaults.activeProvider,
     gemini: normalizeProviderSettings(raw?.gemini, defaults.gemini),
     gpt: normalizeProviderSettings(raw?.gpt, defaults.gpt),
+    agnes: normalizeProviderSettings(raw?.agnes, defaults.agnes),
   };
 };
 
@@ -232,28 +270,48 @@ export const isProviderConfigured = (providerSettings: ProviderAPISettings): boo
   )
 );
 
-export const getProviderLabel = (provider: APIProvider) => (
-  provider === APIProvider.GPT ? "GPT / OpenAI" : "Gemini"
+export const getProviderLabel = (provider: APIProvider) => {
+  if (provider === APIProvider.GPT) return "GPT / OpenAI";
+  if (provider === APIProvider.AGNES) return "Agnes AI";
+  return "Gemini";
+};
+
+export const getProviderImageModels = (provider: APIProvider) => {
+  if (provider === APIProvider.GPT) return OFFICIAL_GPT_IMAGE_MODELS;
+  if (provider === APIProvider.AGNES) return OFFICIAL_AGNES_IMAGE_MODELS;
+  return OFFICIAL_GEMINI_IMAGE_MODELS;
+};
+
+export const getProviderTextModels = (provider: APIProvider) => {
+  if (provider === APIProvider.GPT) return OFFICIAL_GPT_TEXT_MODELS;
+  if (provider === APIProvider.AGNES) return OFFICIAL_AGNES_TEXT_MODELS;
+  return OFFICIAL_GEMINI_TEXT_MODELS;
+};
+
+export const getProviderDefaultImageModel = (provider: APIProvider) => {
+  if (provider === APIProvider.GPT) return DEFAULT_GPT_IMAGE_MODEL;
+  if (provider === APIProvider.AGNES) return DEFAULT_AGNES_IMAGE_MODEL;
+  return DEFAULT_GEMINI_IMAGE_MODEL;
+};
+
+export const getProviderDefaultTextModel = (provider: APIProvider) => {
+  if (provider === APIProvider.GPT) return DEFAULT_GPT_TEXT_MODEL;
+  if (provider === APIProvider.AGNES) return DEFAULT_AGNES_TEXT_MODEL;
+  return DEFAULT_GEMINI_TEXT_MODEL;
+};
+
+export const getProviderDefaultEndpoint = (provider: APIProvider) => {
+  if (provider === APIProvider.GPT) return DEFAULT_GPT_ENDPOINT;
+  if (provider === APIProvider.AGNES) return DEFAULT_AGNES_ENDPOINT;
+  return DEFAULT_GEMINI_ENDPOINT;
+};
+
+export const usesOpenAIImageAPI = (provider: APIProvider): boolean => (
+  provider === APIProvider.GPT || provider === APIProvider.AGNES
 );
 
-export const getProviderImageModels = (provider: APIProvider) => (
-  provider === APIProvider.GPT ? OFFICIAL_GPT_IMAGE_MODELS : OFFICIAL_GEMINI_IMAGE_MODELS
-);
-
-export const getProviderTextModels = (provider: APIProvider) => (
-  provider === APIProvider.GPT ? OFFICIAL_GPT_TEXT_MODELS : OFFICIAL_GEMINI_TEXT_MODELS
-);
-
-export const getProviderDefaultImageModel = (provider: APIProvider) => (
-  provider === APIProvider.GPT ? DEFAULT_GPT_IMAGE_MODEL : DEFAULT_GEMINI_IMAGE_MODEL
-);
-
-export const getProviderDefaultTextModel = (provider: APIProvider) => (
-  provider === APIProvider.GPT ? DEFAULT_GPT_TEXT_MODEL : DEFAULT_GEMINI_TEXT_MODEL
-);
-
-export const getProviderDefaultEndpoint = (provider: APIProvider) => (
-  provider === APIProvider.GPT ? DEFAULT_GPT_ENDPOINT : DEFAULT_GEMINI_ENDPOINT
+export const usesChatCompletionsAPI = (provider: APIProvider): boolean => (
+  provider === APIProvider.AGNES
 );
 
 const parseGeminiEndpoint = (endpoint: string) => {
@@ -292,9 +350,38 @@ export const createGeminiClient = (providerSettings = loadAPISettings().gemini) 
 };
 
 export const getOpenAIEndpointUrl = (providerSettings: ProviderAPISettings, path: string): string => {
-  const base = providerSettings.endpoint.trim() || DEFAULT_GPT_ENDPOINT;
+  let base = providerSettings.endpoint.trim() || DEFAULT_GPT_ENDPOINT;
+
+  if (import.meta.env.DEV && base.includes(AGNES_REMOTE_ORIGIN)) {
+    base = base.replace(AGNES_REMOTE_ORIGIN, AGNES_PROXY_PREFIX);
+  }
+
   const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-  return new URL(path.replace(/^\/+/, ""), normalizedBase).toString();
+  const resolvedBase = normalizedBase.startsWith("/") && typeof window !== "undefined"
+    ? new URL(normalizedBase, window.location.origin).toString()
+    : normalizedBase;
+
+  return new URL(path.replace(/^\/+/, ""), resolvedBase).toString();
+};
+
+export const resolveAgnesAssetUrl = (url: string): string => {
+  if (!import.meta.env.DEV || typeof window === "undefined") {
+    return url;
+  }
+
+  try {
+    const parsed = new URL(url);
+    const isAgnesAssetHost = parsed.hostname.endsWith("agnes-ai.com")
+      || parsed.hostname.endsWith("agnes-ai.space");
+
+    if (isAgnesAssetHost) {
+      return `${AGNES_ASSET_PROXY_PREFIX}/${parsed.hostname}${parsed.pathname}${parsed.search}`;
+    }
+  } catch {
+    return url;
+  }
+
+  return url;
 };
 
 export const modelSupportsImageSize = (model: string): boolean => {
