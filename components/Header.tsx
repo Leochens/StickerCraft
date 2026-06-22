@@ -16,6 +16,18 @@ import {
   saveAPISettings,
 } from '../services/apiConfig';
 import { APIProvider, APISettings, Language, ProviderAPISettings } from '../types';
+import HeaderPill from './ui/HeaderPill';
+import IconButton from './ui/IconButton';
+import Badge from './ui/Badge';
+import Chip from './ui/Chip';
+import ChipGroup from './ui/ChipGroup';
+import SegmentedControl from './ui/SegmentedControl';
+import IosToolbarButton from './ui/IosToolbarButton';
+import IosDestructiveButton from './ui/IosDestructiveButton';
+import IosDisclosureRow from './ui/IosDisclosureRow';
+import TextLink from './ui/TextLink';
+import MenuItemButton from './ui/MenuItemButton';
+import IosTextField from './ui/IosTextField';
 
 const Header: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
@@ -147,15 +159,19 @@ const Header: React.FC = () => {
   const isCustomImageModel = !activeImageModels.some(model => model.value === activeDraft.imageModel);
   const isCustomTextModel = !activeTextModels.some(model => model.value === activeDraft.textModel);
 
-  const iosSectionClass = 'px-4 mb-1.5 text-[13px] font-normal text-[rgba(60,60,67,0.6)]';
+  const providerSegmentOptions = useMemo(
+    () => providerOptions.map((provider) => ({
+      value: provider.id,
+      label: provider.label,
+      shortLabel: provider.shortLabel,
+    })),
+    [providerOptions],
+  );
+
+  const iosSectionClass = 'px-4 mb-1.5 text-[13px] font-normal text-[var(--ios-label)]';
   const iosGroupClass = 'rounded-[10px] bg-white overflow-hidden';
   const iosRowClass = 'px-4 py-3 border-b border-[rgba(60,60,67,0.12)] last:border-b-0';
-  const iosFootnoteClass = 'px-4 mt-2 text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]';
-  const iosChipClass = (active: boolean) => (
-    active
-      ? 'bg-[#007AFF] text-white shadow-sm'
-      : 'bg-[rgba(120,120,128,0.12)] text-[rgba(60,60,67,0.6)] active:opacity-70'
-  );
+  const iosFootnoteClass = 'px-4 mt-2 text-[13px] leading-[18px] text-[var(--ios-label)]';
 
   const updateProviderDraft = (provider: APIProvider, nextProviderSettings: Partial<ProviderAPISettings>) => {
     setDraft(prev => ({
@@ -211,68 +227,62 @@ const Header: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-3">
-          <button
+          <HeaderPill
+            variant={activeProviderConfigured ? 'configured' : 'warning'}
+            icon={<KeyRound size={14} />}
             onClick={() => {
               const next = loadAPISettings();
               setDraft(next);
               setIsApiKeyVisible(false);
               setIsSettingsOpen(true);
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors text-[13px] font-medium border ${
-              activeProviderConfigured
-                ? 'bg-white/80 text-[#007AFF] border-[rgba(60,60,67,0.12)] hover:bg-white'
-                : 'bg-[rgba(255,149,0,0.12)] text-[#FF9500] border-transparent hover:bg-[rgba(255,149,0,0.18)]'
-            }`}
           >
-            <KeyRound size={14} />
             <span className="hidden sm:inline">{copy.settings}</span>
             <span className="sm:hidden">{activeProviderConfigured ? copy.configured : copy.missing}</span>
-          </button>
+          </HeaderPill>
 
-           {/* Language Switcher */}
           <div className="relative">
-            <button
-              onClick={() => setIsLanguageOpen(prev => !prev)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors text-xs font-bold border border-transparent hover:border-orange-100"
+            <HeaderPill
+              variant="neutral"
+              icon={<Globe size={14} />}
+              trailing={
+                <ChevronDown size={12} className={`transition-transform ${isLanguageOpen ? 'rotate-180' : ''}`} />
+              }
+              onClick={() => setIsLanguageOpen((prev) => !prev)}
+              className="text-xs font-bold"
+              aria-expanded={isLanguageOpen}
+              aria-haspopup="listbox"
             >
-              <Globe size={14} />
-              <span>{selectedLanguage.label}</span>
-              <ChevronDown size={12} className={`transition-transform ${isLanguageOpen ? 'rotate-180' : ''}`} />
-            </button>
+              {selectedLanguage.label}
+            </HeaderPill>
 
             {isLanguageOpen && (
               <div className="absolute right-0 top-full mt-2 w-44 rounded-xl border border-stone-200 bg-white shadow-xl overflow-hidden z-40 animate-fade-in">
                 {LANGUAGE_OPTIONS.map((option) => (
-                  <button
+                  <MenuItemButton
                     key={option.code}
-                    type="button"
+                    selected={language === option.code}
+                    trailing={language === option.code ? <Check size={14} /> : undefined}
                     onClick={() => {
                       setLanguage(option.code as Language);
                       setIsLanguageOpen(false);
                     }}
-                    className={`w-full px-3 py-2.5 flex items-center justify-between text-left text-xs font-bold transition-colors ${
-                      language === option.code
-                        ? 'bg-orange-50 text-orange-700'
-                        : 'text-stone-600 hover:bg-stone-50'
-                    }`}
                   >
-                    <span>{option.label}</span>
-                    {language === option.code && <Check size={14} />}
-                  </button>
+                    {option.label}
+                  </MenuItemButton>
                 ))}
               </div>
             )}
           </div>
 
-          <a
+          <IconButton
             href="https://github.com/Leochens/StickerCraft"
-            target="_blank"
-            rel="noreferrer"
+            variant="ghost"
+            size="md"
+            icon={<Github size={16} />}
             aria-label="Open StickerCraft on GitHub"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors border border-transparent hover:border-orange-100"
-          >
-            <Github size={16} />
-          </a>
+            className="border border-transparent hover:border-orange-100 hover:bg-orange-50 hover:text-orange-600"
+          />
         </div>
       </div>
 
@@ -282,7 +292,7 @@ const Header: React.FC = () => {
           onClick={() => setIsSettingsOpen(false)}
         >
           <div
-            className="ios-sheet flex h-[92vh] w-full flex-col overflow-hidden rounded-t-[20px] bg-[#F2F2F7] shadow-2xl animate-fade-in sm:h-[700px] sm:min-h-[700px] sm:max-h-[700px] sm:w-[520px] sm:min-w-[520px] sm:max-w-[520px] sm:rounded-[20px]"
+            className="ios-sheet flex h-[92dvh] w-full flex-col overflow-hidden rounded-t-[20px] bg-[var(--ios-bg)] shadow-2xl animate-fade-in sm:h-[700px] sm:min-h-[700px] sm:max-h-[700px] sm:w-[520px] sm:min-w-[520px] sm:max-w-[520px] sm:rounded-[20px]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex justify-center pt-2 pb-1 sm:hidden flex-shrink-0">
@@ -290,51 +300,37 @@ const Header: React.FC = () => {
             </div>
 
             <div className="relative flex items-center justify-between px-4 h-11 flex-shrink-0 border-b border-[rgba(60,60,67,0.12)]">
-              <button
-                type="button"
-                onClick={() => setIsSettingsOpen(false)}
-                className="min-w-[52px] text-left text-[17px] text-[#007AFF] active:opacity-60"
-              >
+              <IosToolbarButton align="start" onClick={() => setIsSettingsOpen(false)}>
                 {copy.cancel}
-              </button>
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-                <h2 className="text-[17px] font-semibold text-black leading-tight">{copy.settings}</h2>
-                <p className={`text-[11px] leading-tight ${draftProviderConfigured ? 'text-[#34C759]' : 'text-[#FF9500]'}`}>
-                  {activeProviderLabel} · {draftProviderConfigured ? copy.configured : copy.missing}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleSaveSettings}
-                className="min-w-[52px] text-right text-[17px] font-semibold text-[#007AFF] active:opacity-60"
-              >
+              </IosToolbarButton>
+              <h2 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[17px] font-semibold text-black leading-none">
+                {copy.settings}
+              </h2>
+              <IosToolbarButton align="end" emphasis onClick={handleSaveSettings}>
                 {copy.save}
-              </button>
+              </IosToolbarButton>
             </div>
 
             <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-6">
               <section>
-                <p className={iosSectionClass}>{copy.provider}</p>
-                <div className="flex p-1 rounded-[9px] bg-[rgba(120,120,128,0.16)]">
-                  {providerOptions.map((provider) => {
-                    const isActive = draft.activeProvider === provider.id;
-                    return (
-                      <button
-                        key={provider.id}
-                        type="button"
-                        onClick={() => setDraft(prev => ({ ...prev, activeProvider: provider.id }))}
-                        className={`flex-1 rounded-[7px] py-1.5 text-[13px] font-medium transition-all active:scale-[0.98] ${
-                          isActive
-                            ? 'bg-white text-black shadow-sm'
-                            : 'text-[rgba(60,60,67,0.6)]'
-                        }`}
-                      >
-                        <span className="hidden sm:inline">{provider.label}</span>
-                        <span className="sm:hidden">{provider.shortLabel}</span>
-                      </button>
-                    );
-                  })}
+                <div className="mb-1.5 flex items-center justify-between gap-2 px-4">
+                  <p className="text-[13px] font-normal text-[var(--ios-label)]">{copy.provider}</p>
+                  <Badge
+                    variant={draftProviderConfigured ? 'success' : 'warning'}
+                    size="xs"
+                    className="font-semibold shrink-0"
+                  >
+                    {activeProviderLabel} · {draftProviderConfigured ? copy.configured : copy.missing}
+                  </Badge>
                 </div>
+                <SegmentedControl
+                  value={draft.activeProvider}
+                  onChange={(provider) => setDraft((prev) => ({ ...prev, activeProvider: provider }))}
+                  options={providerSegmentOptions}
+                  layout="ios"
+                  tone="ios"
+                  ariaLabel={copy.provider}
+                />
               </section>
 
               <section>
@@ -342,32 +338,31 @@ const Header: React.FC = () => {
                 <div className={iosGroupClass}>
                   <label className={`${iosRowClass} block`}>
                     <span className="text-[13px] text-[rgba(60,60,67,0.6)]">{copy.apiKey}</span>
-                    <div className="relative mt-1">
-                      <input
-                        type={isApiKeyVisible ? 'text' : 'password'}
-                        value={activeDraft.apiKey}
-                        onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
-                        placeholder={copy.apiKeyPlaceholder}
-                        className="ios-input w-full bg-transparent pr-10 text-[17px] text-black placeholder:text-[rgba(60,60,67,0.3)]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setIsApiKeyVisible(prev => !prev)}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-[#007AFF] active:opacity-60"
-                        aria-label={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
-                      >
-                        {isApiKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-                      </button>
-                    </div>
+                    <IosTextField
+                      type={isApiKeyVisible ? 'text' : 'password'}
+                      value={activeDraft.apiKey}
+                      onChange={(event) => updateProviderDraft(draft.activeProvider, { apiKey: event.target.value })}
+                      placeholder={copy.apiKeyPlaceholder}
+                      autoComplete="off"
+                      suffix={
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          icon={isApiKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                          aria-label={isApiKeyVisible ? copy.hideApiKey : copy.showApiKey}
+                          onClick={() => setIsApiKeyVisible((prev) => !prev)}
+                          className="ios-accent rounded-lg hover:bg-black/5 active:opacity-60"
+                        />
+                      }
+                    />
                   </label>
                   <label className={`${iosRowClass} block`}>
                     <span className="text-[13px] text-[rgba(60,60,67,0.6)]">{copy.endpoint}</span>
-                    <input
+                    <IosTextField
                       type="url"
                       value={activeDraft.endpoint}
                       onChange={(event) => updateProviderDraft(draft.activeProvider, { endpoint: event.target.value })}
                       placeholder={getProviderDefaultEndpoint(draft.activeProvider)}
-                      className="ios-input mt-1 w-full bg-transparent text-[17px] text-black"
                     />
                   </label>
                 </div>
@@ -379,68 +374,68 @@ const Header: React.FC = () => {
                 <div className={iosGroupClass}>
                   <div className={iosRowClass}>
                     <span className="mb-2.5 block text-[17px] text-black">{copy.imageModel}</span>
-                    <div className="flex flex-wrap gap-2">
+                    <ChipGroup ariaLabel={copy.imageModel}>
                       {activeImageModels.map((model) => (
-                        <button
+                        <Chip
                           key={model.value}
-                          type="button"
+                          tone="ios"
+                          selected={activeDraft.imageModel === model.value}
                           onClick={() => updateProviderDraft(draft.activeProvider, { imageModel: model.value })}
-                          className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(activeDraft.imageModel === model.value)}`}
                         >
                           {model.value}
-                        </button>
+                        </Chip>
                       ))}
-                      <button
-                        type="button"
+                      <Chip
+                        tone="ios"
+                        selected={isCustomImageModel}
                         onClick={() => updateProviderDraft(draft.activeProvider, {
                           imageModel: isCustomImageModel ? activeDraft.imageModel : '',
                         })}
-                        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(isCustomImageModel)}`}
                       >
                         {copy.customModel}
-                      </button>
-                    </div>
+                      </Chip>
+                    </ChipGroup>
                     {isCustomImageModel && (
                       <input
                         type="text"
                         value={activeDraft.imageModel}
                         onChange={(event) => updateProviderDraft(draft.activeProvider, { imageModel: event.target.value })}
                         placeholder={getProviderDefaultImageModel(draft.activeProvider)}
-                        className="ios-input mt-3 w-full rounded-[10px] bg-[#F2F2F7] px-3 py-2.5 text-[15px] text-black"
+                        className="ios-input mt-3 w-full rounded-[10px] bg-[var(--sc-surface-muted)] px-3 py-2.5 text-[15px] text-black"
                       />
                     )}
                   </div>
 
                   <div className={iosRowClass}>
                     <span className="mb-2.5 block text-[17px] text-black">{copy.helperModel}</span>
-                    <div className="flex flex-wrap gap-2">
+                    <ChipGroup ariaLabel={copy.helperModel}>
                       {activeTextModels.map((model) => (
-                        <button
+                        <Chip
                           key={model.value}
-                          type="button"
+                          tone="ios"
+                          selected={activeDraft.textModel === model.value}
                           onClick={() => updateProviderDraft(draft.activeProvider, { textModel: model.value })}
-                          className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(activeDraft.textModel === model.value)}`}
                         >
                           {model.value}
-                        </button>
+                        </Chip>
                       ))}
-                      <button
-                        type="button"
+                      <Chip
+                        tone="ios"
+                        selected={isCustomTextModel}
                         onClick={() => updateProviderDraft(draft.activeProvider, {
                           textModel: isCustomTextModel ? activeDraft.textModel : '',
                         })}
-                        className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${iosChipClass(isCustomTextModel)}`}
                       >
                         {copy.customModel}
-                      </button>
-                    </div>
+                      </Chip>
+                    </ChipGroup>
                     {isCustomTextModel && (
                       <input
                         type="text"
                         value={activeDraft.textModel}
                         onChange={(event) => updateProviderDraft(draft.activeProvider, { textModel: event.target.value })}
                         placeholder={getProviderDefaultTextModel(draft.activeProvider)}
-                        className="ios-input mt-3 w-full rounded-[10px] bg-[#F2F2F7] px-3 py-2.5 text-[15px] text-black"
+                        className="ios-input mt-3 w-full rounded-[10px] bg-[var(--sc-surface-muted)] px-3 py-2.5 text-[15px] text-black"
                       />
                     )}
                   </div>
@@ -450,67 +445,43 @@ const Header: React.FC = () => {
 
               <section>
                 <div className={iosGroupClass}>
-                  <button
-                    type="button"
-                    onClick={() => setShowHelp(prev => !prev)}
-                    className="flex w-full items-center justify-between px-4 py-3 text-left active:bg-[rgba(120,120,128,0.08)]"
+                  <IosDisclosureRow
+                    icon={<HelpCircle size={18} className="ios-accent" />}
+                    label={copy.helpTitle}
+                    expanded={showHelp}
+                    onToggle={() => setShowHelp((prev) => !prev)}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <HelpCircle size={18} className="text-[#007AFF]" />
-                      <span className="text-[17px] text-black">{copy.helpTitle}</span>
-                    </div>
-                    <ChevronDown
-                      size={16}
-                      className={`text-[rgba(60,60,67,0.3)] transition-transform ${showHelp ? 'rotate-180' : ''}`}
-                    />
-                  </button>
+                    <p className="text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]">{copy.disclaimerDescription}</p>
 
-                  {showHelp && (
-                    <div className="border-t border-[rgba(60,60,67,0.12)] px-4 py-3 space-y-3">
-                      <p className="text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]">{copy.disclaimerDescription}</p>
-
-                      <div className="rounded-[10px] bg-[#F2F2F7] px-3 py-3">
-                        <p className="text-[15px] font-medium text-black">{activeOfficialOption.name}</p>
-                        <p className="mt-1 text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)] break-all">
-                          {activeOfficialOption.endpoint}
-                        </p>
-                        <a
-                          href={activeOfficialOption.href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="mt-2 inline-flex items-center gap-1 text-[15px] text-[#007AFF] active:opacity-60"
-                        >
-                          {copy.officialAction}
-                          <ExternalLink size={14} />
-                        </a>
-                      </div>
-
-                      <p className="text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]">
-                        {copy.proxyDescription}{' '}
-                        <a
-                          href="https://api.gpt.ge/register?aff=qMCL"
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#007AFF]"
-                        >
-                          {copy.proxyAction}
-                        </a>
+                    <div className="rounded-[10px] bg-[var(--sc-surface-muted)] px-3 py-3">
+                      <p className="text-[15px] font-medium text-black">{activeOfficialOption.name}</p>
+                      <p className="mt-1 text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)] break-all">
+                        {activeOfficialOption.endpoint}
                       </p>
+                      <TextLink
+                        href={activeOfficialOption.href}
+                        icon={<ExternalLink size={14} />}
+                        className="mt-2"
+                      >
+                        {copy.officialAction}
+                      </TextLink>
                     </div>
-                  )}
+
+                    <p className="text-[13px] leading-[18px] text-[rgba(60,60,67,0.6)]">
+                      {copy.proxyDescription}{' '}
+                      <TextLink href="https://api.gpt.ge/register?aff=qMCL" inline>
+                        {copy.proxyAction}
+                      </TextLink>
+                    </p>
+                  </IosDisclosureRow>
                 </div>
               </section>
             </div>
 
-            <div className="flex-shrink-0 border-t border-[rgba(60,60,67,0.12)] bg-[#F2F2F7] px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
-              <button
-                type="button"
-                onClick={handleResetSettings}
-                className="flex w-full items-center justify-center gap-1.5 py-2 text-[15px] text-[#FF3B30] active:opacity-60"
-              >
-                <RotateCcw size={15} />
+            <div className="flex-shrink-0 border-t border-[rgba(60,60,67,0.12)] bg-[var(--ios-bg)] px-4 py-3 pb-[max(12px,env(safe-area-inset-bottom))]">
+              <IosDestructiveButton icon={<RotateCcw size={15} />} onClick={handleResetSettings}>
                 {copy.reset}
-              </button>
+              </IosDestructiveButton>
             </div>
           </div>
         </div>

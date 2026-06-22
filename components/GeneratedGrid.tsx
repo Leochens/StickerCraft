@@ -19,7 +19,12 @@ import {
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { useLanguage } from '../contexts/LanguageContext';
-import { STICKER_STYLES } from '../constants';
+import { STICKER_STYLES, PRESET_PROMPTS } from '../constants';
+import ConfirmDialog from './ConfirmDialog';
+import CustomSelect from './ui/CustomSelect';
+import Badge from './ui/Badge';
+import IconButton from './ui/IconButton';
+import { CHECKERBOARD_CLASS } from '../utils/uiClasses';
 
 interface GeneratedGridProps {
   images: GeneratedImage[];
@@ -38,6 +43,7 @@ interface GeneratedGridProps {
   transparencyRepairIds?: Set<string>;
   splittingCollectionIds?: Set<string>;
   onUploadImage?: (dataUrl: string, prompt: string, styleName: string) => void;
+  onSwitchToCreate?: () => void;
 }
 
 type ImageTypeFilter = 'all' | 'single' | 'threeViews' | 'collection';
@@ -79,10 +85,13 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
   transparencyRepairIds = new Set(),
   splittingCollectionIds = new Set(),
   onUploadImage,
+  onSwitchToCreate,
 }) => {
   const { t, language } = useLanguage();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isZipping, setIsZipping] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [zipError, setZipError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState<ImageTypeFilter>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [activeCollectionId, setActiveCollectionId] = useState<string | null>(null);
@@ -308,7 +317,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
       setSelectedIds(new Set());
     } catch (error) {
       console.error("Failed to zip images", error);
-      alert("Failed to create zip file.");
+      setZipError(t('zip_failed'));
     } finally {
       setIsZipping(false);
     }
@@ -316,10 +325,15 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
 
   const handleBatchDelete = () => {
     if (!onDeleteMany || selectedIds.size === 0) return;
+    setConfirmDeleteOpen(true);
+  };
+
+  const executeBatchDelete = () => {
+    if (!onDeleteMany) return;
     const ids = [...selectedIds];
-    if (!window.confirm(copy.confirmDelete(ids.length))) return;
     onDeleteMany(ids);
     setSelectedIds(new Set());
+    setConfirmDeleteOpen(false);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -405,7 +419,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to zip collection stickers", error);
-      alert("Failed to create zip file.");
+      setZipError(t('zip_failed'));
     } finally {
       setIsCollectionZipping(false);
     }
@@ -421,6 +435,18 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
       left: toInset(cropAdjustments.left),
     };
   }, [cropAdjustments]);
+
+  const uploadStyleOptions = useMemo(() => {
+    const styleNames = STICKER_STYLES.map((style) => style.name);
+    const extraCategories = categories.filter(
+      (category) => category !== 'All' && !styleNames.includes(category),
+    );
+
+    return [
+      ...STICKER_STYLES.map((style) => ({ value: style.name, label: style.name })),
+      ...extraCategories.map((category) => ({ value: category, label: category })),
+    ];
+  }, [categories]);
 
   const uploadModal = isUploadModalOpen && (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/50 backdrop-blur-sm p-4">
@@ -449,7 +475,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                 onClick={() => setIsCustomStyleInput(!isCustomStyleInput)}
                 className="text-[10px] text-orange-500 font-bold hover:underline"
               >
-                {isCustomStyleInput ? "Pick existing" : "Type new"}
+                {isCustomStyleInput ? t('pick_existing') : t('type_new')}
               </button>
             </div>
 
@@ -458,31 +484,25 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                 type="text"
                 value={uploadStyle}
                 onChange={(e) => setUploadStyle(e.target.value)}
-                placeholder="e.g. My Custom Style"
+                placeholder={t('upload_style_placeholder')}
                 className="w-full p-2 border border-stone-200 rounded-lg focus:border-orange-400 outline-none text-sm"
               />
             ) : (
-              <select
+              <CustomSelect
                 value={uploadStyle}
-                onChange={(e) => setUploadStyle(e.target.value)}
-                className="w-full p-2 border border-stone-200 rounded-lg focus:border-orange-400 outline-none text-sm bg-white"
-              >
-                {STICKER_STYLES.map(style => (
-                  <option key={style.id} value={style.name}>{style.name}</option>
-                ))}
-                {categories.filter(category => category !== 'All' && !STICKER_STYLES.some(style => style.name === category)).map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
+                onChange={setUploadStyle}
+                options={uploadStyleOptions}
+                ariaLabel={t('upload_image_classification')}
+              />
             )}
           </div>
 
           <div className="flex gap-2 pt-2">
             <button
               onClick={() => setIsUploadModalOpen(false)}
-              className="flex-1 py-2 text-stone-500 font-bold hover:bg-stone-50 rounded-lg"
+              className="flex-1 cursor-pointer py-2 text-stone-500 font-bold hover:bg-stone-50 rounded-lg transition-colors duration-200"
             >
-              Cancel
+              {t('action_cancel')}
             </button>
             <button
               onClick={confirmUpload}
@@ -507,12 +527,14 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             </div>
             <p className="mt-1 text-sm font-semibold text-stone-500 line-clamp-1">{activeCollection.prompt}</p>
           </div>
-          <button
+          <IconButton
+            variant="ghost"
+            size="sm"
+            icon={<X size={22} />}
+            aria-label={t('action_cancel')}
             onClick={() => setActiveCollectionId(null)}
-            className="rounded-full p-2 text-stone-400 hover:bg-stone-100 hover:text-stone-800 transition-colors"
-          >
-            <X size={22} />
-          </button>
+            className="rounded-full"
+          />
         </div>
 
         <div className={`grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[300px_minmax(0,1fr)] ${
@@ -524,11 +546,11 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             <div className="rounded-2xl border border-stone-100 bg-stone-50 p-3">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-black uppercase tracking-wide text-stone-500">{copy.sourcePreview}</span>
-                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-orange-600 border border-orange-100">
+                <Badge variant="orange-outline" size="sm" className="font-black">
                   {collectionItems.length} {copy.pieces}
-                </span>
+                </Badge>
               </div>
-              <div className="aspect-square rounded-xl bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-white flex items-center justify-center p-3 overflow-hidden">
+              <div className={`aspect-square rounded-xl ${CHECKERBOARD_CLASS} flex items-center justify-center p-3 overflow-hidden`}>
                 <img src={activeCollection.dataUrl} alt={activeCollection.prompt} className="max-h-full max-w-full object-contain drop-shadow-xl" />
               </div>
             </div>
@@ -641,37 +663,43 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                   <div key={item.id} className="group overflow-hidden rounded-2xl border border-stone-100 bg-white shadow-sm transition-shadow hover:shadow-lg">
                     <button
                       onClick={() => openCropEditor(item)}
-                      className="aspect-square w-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-stone-50 flex items-center justify-center p-3"
+                      className={`aspect-square w-full ${CHECKERBOARD_CLASS} flex items-center justify-center p-3`}
                     >
                       <img src={item.dataUrl} alt={`${item.prompt} ${index + 1}`} className="max-h-full max-w-full object-contain drop-shadow-lg" />
                     </button>
                     <div className="flex items-center justify-between gap-2 border-t border-stone-50 p-2">
-                      <span className="rounded-full bg-stone-50 px-2 py-1 text-[10px] font-black text-stone-500">
+                      <Badge variant="neutral" size="sm" className="font-black">
                         #{item.splitIndex || index + 1}
-                      </span>
+                      </Badge>
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openCropEditor(item)}
-                          className="rounded-full p-1.5 text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        <IconButton
+                          variant="default"
+                          size="sm"
+                          icon={<Scissors size={14} />}
+                          aria-label={copy.manageCrop}
                           title={copy.manageCrop}
-                        >
-                          <Scissors size={14} />
-                        </button>
-                        <button
+                          onClick={() => openCropEditor(item)}
+                          className="p-1.5"
+                        />
+                        <IconButton
+                          variant="default"
+                          size="sm"
+                          icon={<Download size={14} />}
+                          aria-label={t('download_png')}
+                          title={t('download_png')}
                           onClick={() => downloadDataUrl(item.dataUrl, `sticker-${item.id}.png`)}
-                          className="rounded-full p-1.5 text-stone-500 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                          title="Download"
-                        >
-                          <Download size={14} />
-                        </button>
+                          className="p-1.5"
+                        />
                         {onDeleteCollectionItem && (
-                          <button
-                            onClick={() => onDeleteCollectionItem(activeCollection.id, item.id)}
-                            className="rounded-full p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                          <IconButton
+                            variant="rose"
+                            size="sm"
+                            icon={<Trash2 size={14} />}
+                            aria-label={t('action_delete')}
                             title={t('action_delete')}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                            onClick={() => onDeleteCollectionItem(activeCollection.id, item.id)}
+                            className="p-1.5 bg-transparent shadow-none scale-100 hover:scale-100"
+                          />
                         )}
                       </div>
                     </div>
@@ -704,7 +732,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                   </button>
                 </div>
 
-                <div className="relative aspect-square overflow-hidden rounded-2xl bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-white flex items-center justify-center p-4">
+                <div className={`relative aspect-square overflow-hidden rounded-2xl ${CHECKERBOARD_CLASS} flex items-center justify-center p-4`}>
                   <img src={cropTarget.dataUrl} alt={cropTarget.prompt} className="max-h-full max-w-full object-contain drop-shadow-lg" />
                   <div className="pointer-events-none absolute inset-0 bg-stone-900/5"></div>
                   <div
@@ -758,9 +786,22 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
           <Image size={40} />
         </div>
         <h3 className="text-2xl font-black text-stone-700 mb-3">{t('empty_gallery_title')}</h3>
-        <p className="text-stone-500 max-w-sm mx-auto leading-relaxed mb-6">
+        <p className="text-stone-600 max-w-sm mx-auto leading-relaxed mb-6">
           {t('empty_gallery_desc')}
         </p>
+        <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <button
+            type="button"
+            onClick={() => {
+              const preset = PRESET_PROMPTS[language]?.[0] ?? PRESET_PROMPTS.en[0];
+              window.dispatchEvent(new CustomEvent('stickerCraft:fill-preset', { detail: preset }));
+              onSwitchToCreate?.();
+            }}
+            className="cursor-pointer bg-orange-500 text-white font-bold px-4 py-2 rounded-xl hover:bg-orange-600 transition-colors duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
+          >
+            <Sparkles size={16} />
+            {t('empty_try_preset')}
+          </button>
         {onUploadImage && (
           <div className="relative">
             <input
@@ -772,13 +813,14 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="bg-white border border-stone-200 text-stone-600 font-bold px-4 py-2 rounded-xl hover:bg-stone-50 transition-colors flex items-center gap-2"
+              className="cursor-pointer bg-white border border-stone-200 text-stone-600 font-bold px-4 py-2 rounded-xl hover:bg-stone-50 transition-colors duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
             >
               <Upload size={16} />
               {t('upload_image_title')}
             </button>
           </div>
         )}
+        </div>
         {uploadModal}
       </div>
     );
@@ -786,6 +828,19 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
 
   return (
     <div className="space-y-6 relative pb-20">
+      {zipError && (
+        <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-center justify-between gap-3 animate-fade-in">
+          <span>{zipError}</span>
+          <button
+            type="button"
+            onClick={() => setZipError(null)}
+            className="cursor-pointer rounded-lg p-1 text-rose-500 hover:bg-rose-100 transition-colors duration-200"
+            aria-label={t('action_cancel')}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="inline-flex w-full max-w-xl rounded-2xl border border-stone-200 bg-white p-1 shadow-sm lg:w-auto">
           {typeOptions.map((option) => {
@@ -805,11 +860,9 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
               >
                 <Icon size={14} />
                 <span className="truncate">{option.label}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] ${
-                  isActive ? 'bg-white/15 text-white' : 'bg-stone-100 text-stone-400'
-                }`}>
+                <Badge variant={isActive ? 'count-active' : 'count'} size="xs" className="font-black">
                   {typeCounts[option.value]}
-                </span>
+                </Badge>
               </button>
             );
           })}
@@ -956,6 +1009,16 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
 
       {uploadModal}
       {collectionModal}
+
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        title={t('confirm_delete_title')}
+        message={t('confirm_delete_body').replace('{count}', String(selectedIds.size))}
+        confirmLabel={t('action_delete')}
+        variant="danger"
+        onConfirm={executeBatchDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
     </div>
   );
 };

@@ -1,0 +1,33 @@
+---
+description: StickerCraft AI 项目概览与核心约定
+alwaysApply: true
+---
+
+# StickerCraft AI 核心约定
+
+## 项目定位
+
+纯前端贴纸生成工具（React 19 + Vite 6 + TypeScript）。浏览器直接调用 Gemini / GPT / Agnes API，API Key 存于 localStorage。默认开发端口 `3000`。
+
+## 目录职责
+
+| 路径 | 职责 |
+| --- | --- |
+| `App.tsx` | 主布局、图库状态、生成/重生成/分割流程 |
+| `components/` | UI 组件（ControlPanel、GeneratedGrid、Header、StickerCard） |
+| `contexts/LanguageContext.tsx` | 多语言状态与 `t()` 翻译函数 |
+| `constants.ts` | 风格预设、翻译、比例、字体、颜色常量 |
+| `types.ts` | 共享类型与枚举 |
+| `services/apiConfig.ts` | Provider 配置、Endpoint 解析、模型建议 |
+| `services/geminiService.ts` | 图片生成、风格分析、提示词生成 |
+| `services/imageProcessing.ts` | 透明 PNG 抠图、裁剪、合集分割 |
+| `services/storageService.ts` | IndexedDB 图库与自定义风格持久化 |
+
+## 修改原则
+
+- 保持最小 diff，不引入未请求的后端、路由框架或 UI 库
+- 样式用 Tailwind CDN 类名（见 `index.html`），图标用 `lucide-react`
+- 新增 provider 时同步更新 `types.ts`、`apiConfig.ts`、`Header.tsx` 配置 UI
+- 透明 PNG 走「纯色背景生成 → 边缘连通抠图」流程，不要依赖模型直接输出 alpha
+- README 有中英文版：`README.md` / `README.zh-CN.md`，功能变更需同步更新
+- Git 备份范围见 `git-backup.mdc`（哪些要 commit、哪些不要）

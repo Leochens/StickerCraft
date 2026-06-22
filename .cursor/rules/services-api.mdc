@@ -1,0 +1,44 @@
+---
+description: API Provider 与浏览器存储服务规范
+globs: services/**
+alwaysApply: false
+---
+
+# Services 层规范
+
+## API Provider
+
+支持三种 provider，配置存于 `stickerCraft_apiSettings`（localStorage）：
+
+| Provider | 默认 Endpoint | 图片 API 格式 |
+| --- | --- | --- |
+| Gemini | `generativelanguage.googleapis.com` | `generateContent` |
+| GPT | `api.openai.com/v1/` | OpenAI Images |
+| Agnes | 开发环境走 `/agnes-api` 代理 | OpenAI-compatible |
+
+- Endpoint 解析、默认值、模型列表集中在 `apiConfig.ts`
+- Agnes 图片 CDN 域名（如 `agnes-ai.space`）需经 `vite.agnesAssetProxy.ts` 代理
+- 新增 provider 时添加 `ProviderAPISettings`、默认模型常量、`getProvider*` 辅助函数
+
+## 图片处理
+
+`imageProcessing.ts` 负责客户端 Canvas 操作：
+
+- 透明抠图：从画布边缘 flood-fill 移除连通背景色
+- 不要假设模型返回真 alpha；棋盘格背景是假透明
+- 复杂边缘（头发、发光、半透明）不保证完美，避免过度承诺
+
+## 持久化
+
+- 图库与自定义风格：IndexedDB（`storageService.ts`）
+- API 配置：localStorage，旧 key `stickerCraft_geminiSettings` 自动迁移
+- 语言偏好：`stickerCraft_language`
+
+```typescript
+// ✅ GOOD — 通过 apiConfig 读写
+const settings = loadAPISettings();
+saveAPISettings({ ...settings, activeProvider: APIProvider.GEMINI });
+
+// ❌ BAD — 直接操作 localStorage key
+localStorage.setItem('stickerCraft_apiSettings', JSON.stringify(data));
+```

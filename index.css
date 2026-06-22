@@ -1,0 +1,172 @@
+@import 'tailwindcss';
+
+@source '../index.html';
+@source '../**/*.{js,ts,jsx,tsx}';
+
+@theme {
+  --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Fredoka', ui-sans-serif, system-ui, sans-serif;
+
+  --color-sc-primary: #f97316;
+  --color-sc-primary-hover: #ea580c;
+  --color-sc-secondary: #fb7185;
+  --color-sc-bg: #fafaf9;
+  --color-sc-surface: #ffffff;
+  --color-sc-surface-muted: #f5f5f4;
+  --color-sc-text: #1c1917;
+  --color-sc-text-muted: #57534e;
+  --color-sc-border: #ffedd5;
+  --color-sc-border-neutral: #e7e5e4;
+  --color-sc-success: #059669;
+  --color-sc-error: #e11d48;
+
+  --animate-fade-in: fade-in 0.25s ease-out both;
+  --animate-scale-in: scale-in 0.2s ease-out both;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+:root {
+  --sc-primary: #f97316;
+  --sc-primary-hover: #ea580c;
+  --sc-secondary: #fb7185;
+  --sc-bg: #fafaf9;
+  --sc-surface: #ffffff;
+  --sc-surface-muted: #f5f5f4;
+  --sc-text: #1c1917;
+  --sc-text-muted: #57534e;
+  --sc-border: #ffedd5;
+  --sc-border-neutral: #e7e5e4;
+  --sc-success: #059669;
+  --sc-error: #e11d48;
+  --sc-info: #f97316;
+
+  --ios-bg: #fafaf9;
+  --ios-group: #ffffff;
+  --ios-label: rgba(87, 83, 78, 0.75);
+  --ios-text: #1c1917;
+  --ios-accent: var(--sc-primary);
+  --ios-separator: rgba(60, 60, 67, 0.12);
+  --ios-fill: rgba(120, 120, 128, 0.12);
+  --ios-warning: #f97316;
+  --ios-danger: #e11d48;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--sc-text);
+  touch-action: manipulation;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.display-font {
+  font-family: var(--font-display);
+}
+
+.ios-sheet {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.ios-input {
+  font-family: inherit;
+}
+
+.ios-input::placeholder {
+  color: rgba(87, 83, 78, 0.4);
+}
+
+.ios-input:focus {
+  outline: none;
+}
+
+.ios-accent {
+  color: var(--ios-accent);
+}
+
+.ios-accent-bg {
+  background-color: var(--ios-accent);
+}
+
+.bg-checkerboard {
+  background-color: #f5f5f4;
+  background-image:
+    linear-gradient(45deg, #e7e5e4 25%, transparent 25%),
+    linear-gradient(-45deg, #e7e5e4 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e7e5e4 75%),
+    linear-gradient(-45deg, transparent 75%, #e7e5e4 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-scale-in,
+  .animate-shimmer,
+  .animate-pulse,
+  .animate-spin {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 128, 0.35);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(120, 120, 128, 0.5);
+}
+
+.custom-scrollbar {
+  overscroll-behavior: contain;
+}

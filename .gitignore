@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python cache (Cursor skills scripts)
+__pycache__/
+*.pyc

@@ -1,0 +1,35 @@
+---
+description: React 组件与 TypeScript 编码规范
+globs: **/*.{tsx,ts}
+alwaysApply: false
+---
+
+# React / TypeScript 规范
+
+## 组件模式
+
+- 使用函数组件 + `React.FC`，props 用 interface 定义
+- 共享类型放 `types.ts`，枚举用 `enum`（如 `APIProvider`、`AspectRatio`）
+- 常量与预设放 `constants.ts`，不在组件内硬编码大段配置
+
+```tsx
+// ✅ GOOD
+const ControlPanel: React.FC<ControlPanelProps> = ({ onGenerate }) => {
+  const { t } = useLanguage();
+  return <button>{t('btn_generate')}</button>;
+};
+
+// ❌ BAD — 硬编码 UI 文案
+return <button>Generate</button>;
+```
+
+## 状态与副作用
+
+- IndexedDB 持久化需等 `hasHydratedStorage` 后再写入，避免覆盖已有数据
+- 异步 effect 用 `isMounted` 标志防止卸载后 setState
+- API 配置变更通过 `window.dispatchEvent(new CustomEvent('stickerCraft:api-settings-updated'))` 通知
+
+## 导入约定
+
+- 相对路径导入（`./components/Header`），不用 `@/` 别名（虽在 vite 中配置了 alias，项目现有代码未使用）
+- 服务层从 `services/` 导入，类型从 `types` 导入

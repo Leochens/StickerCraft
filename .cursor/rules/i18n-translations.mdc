@@ -1,0 +1,35 @@
+---
+description: 多语言翻译与文案规范
+globs: constants.ts,components/**,contexts/**
+alwaysApply: false
+---
+
+# 多语言 (i18n)
+
+## 支持语言
+
+English、中文、Español、Français、Deutsch、日本語、한국어、Português。默认语言 `zh`（见 `LanguageContext`）。
+
+## 添加 UI 文案
+
+1. 在 `constants.ts` 的 `TRANSLATIONS.en` 添加英文 key
+2. 同步添加到所有语言对象（至少 `en` 和 `zh`）
+3. 组件内通过 `useLanguage()` 的 `t('key')` 引用
+
+```tsx
+// ✅ GOOD
+const { t } = useLanguage();
+<span>{t('style_label')}</span>
+
+// ❌ BAD — 跳过翻译系统
+<span>Choose a Style</span>
+```
+
+## 风格预设
+
+- 英文技术名放 `name`，中文标签放 `label_zh`
+- 新增 `STICKER_STYLES` 条目需包含 `id`、`promptModifier`、`previewColor`
+
+## 例外
+
+`Header.tsx` 中 API 配置弹窗的部分说明文案按 `language === 'zh'` 内联中英双语，新增配置说明时保持此模式。

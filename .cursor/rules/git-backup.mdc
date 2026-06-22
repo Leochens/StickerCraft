@@ -1,0 +1,51 @@
+---
+description: Git 版本控制与备份范围（哪些要 commit、哪些不要）
+alwaysApply: true
+---
+
+# Git 备份规范
+
+仅在用户**明确要求 commit** 时执行 git 提交；但新增/修改文件时应遵守下列纳入与排除范围。
+
+## 需要 Git 备份（应纳入版本控制）
+
+| 类别 | 路径 |
+| --- | --- |
+| 应用源码 | `App.tsx`、`index.tsx`、`types.ts`、`constants.ts` |
+| 组件与上下文 | `components/**`、`contexts/**` |
+| 服务层 | `services/**` |
+| 构建配置 | `vite.config.ts`、`vite.agnesAssetProxy.ts`、`tsconfig.json` |
+| 依赖锁定 | `package.json`、`package-lock.json` |
+| 入口与静态资源 | `index.html`、`public/**` |
+| 文档与展示图 | `README.md`、`README.zh-CN.md`、`docs/**`、`metadata.json` |
+| 项目规则 | `.cursor/rules/*.mdc` |
+| Git 忽略规则 | `.gitignore` |
+
+可选（团队共用 Cursor Skill 时才提交源码）：
+
+- `.cursor/skills/**/SKILL.md`
+- `.cursor/skills/**/scripts/*.py`
+- `.cursor/skills/**/data/*.csv`
+
+## 不要 Git 备份（禁止 commit）
+
+| 类别 | 路径 / 说明 |
+| --- | --- |
+| 依赖与构建产物 | `node_modules/`、`dist/`、`dist-ssr/` |
+| 敏感配置 | `.env.local`、`*.local`（含 API Key） |
+| 日志与编辑器缓存 | `*.log`、`.idea/`、`.DS_Store`、`.vscode/*`（除 `extensions.json`） |
+| Python 缓存 | `**/__pycache__/`、`*.pyc` |
+| 浏览器运行时数据 | localStorage / IndexedDB（API 配置、图库、语言偏好）——不在仓库内 |
+
+## 操作原则
+
+```bash
+# ✅ 功能改动后，用户要求 commit 时可提交
+git add App.tsx components/ services/ .cursor/rules/
+
+# ❌ 永远不要提交
+git add node_modules dist .env.local **/__pycache__
+```
+
+- 发现 `.env.local` 或含 Key 的文件被误加入 staging，立即 `git reset` 并提醒用户
+- 新增 Skill 时同步更新 `.gitignore` 排除 `__pycache__/`，不要只写规则不落地

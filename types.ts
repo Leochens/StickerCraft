@@ -43,6 +43,7 @@ export interface StickerStyle {
   label_zh?: string; // Chinese label
   promptModifier: string;
   previewColor: string;
+  previewImage?: string;
   icon?: string;
   isCustom?: boolean;
   referenceImage?: string;
