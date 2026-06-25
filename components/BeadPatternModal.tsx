@@ -9,6 +9,7 @@ import {
   renderBeadPatternToCanvas,
 } from '../services/beadPatternService';
 import { useLanguage } from '../contexts/LanguageContext';
+import { trackEvent } from '../services/analytics';
 
 interface BeadPatternModalProps {
   image: GeneratedImage;
@@ -132,6 +133,14 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
     canvas.toBlob((blob) => {
       if (!blob) return;
       downloadBlob(blob, `bead-pattern-${image.id}.png`);
+      trackEvent('bead_pattern_exported', {
+        format: 'png',
+        palette: pattern.palette.brand,
+        width: pattern.width,
+        height: pattern.height,
+        color_count: pattern.materialList.length,
+        total_beads: pattern.totalBeads,
+      });
     }, 'image/png');
   };
 
@@ -141,6 +150,14 @@ const BeadPatternModal: React.FC<BeadPatternModalProps> = ({ image, onClose }) =
       new Blob([beadPatternToCsv(pattern)], { type: 'text/csv;charset=utf-8' }),
       `bead-pattern-${image.id}.csv`,
     );
+    trackEvent('bead_pattern_exported', {
+      format: 'csv',
+      palette: pattern.palette.brand,
+      width: pattern.width,
+      height: pattern.height,
+      color_count: pattern.materialList.length,
+      total_beads: pattern.totalBeads,
+    });
   };
 
   return (

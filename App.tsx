@@ -20,6 +20,29 @@ import { useLanguage } from './contexts/LanguageContext';
 import { CHECKERBOARD_CLASS } from './utils/uiClasses';
 import Badge from './components/ui/Badge';
 import IconButton from './components/ui/IconButton';
+import { trackEvent } from './services/analytics';
+
+const getImageTrackingType = (image: GeneratedImage) => {
+  if (image.sourceType === 'uploaded') return 'uploaded';
+  if (image.isStickerCollection) return 'collection';
+  if (image.isThreeViews) return 'three_views';
+  return 'single';
+};
+
+const getGenerationTrackingPayload = (requests: StickerRequest[], totalQuantity: number) => ({
+  request_count: requests.length,
+  total_quantity: totalQuantity,
+  layout_modes: Array.from(new Set(requests.map(request => (
+    request.useStickerCollection ? 'collection' : request.useThreeViews ? 'three_views' : 'single'
+  )))).join(','),
+  has_text: requests.some(request => request.textConfig.enabled),
+  has_background: requests.some(request => request.backgroundConfig.enabled),
+  has_reference: requests.some(request => Boolean(request.referenceImage)),
+  has_collection_items: requests.some(request => Boolean(request.collectionItemPrompts?.length)),
+  all_with_sticker_border: requests.every(request => request.useStickerBorder),
+  all_with_facial_features: requests.every(request => request.useFacialFeatures),
+  model_count: new Set(requests.map(request => request.model)).size,
+});
 
 const App: React.FC = () => {
   const { t } = useLanguage();
@@ -108,6 +131,9 @@ const App: React.FC = () => {
   const handleGenerate = async (requests: StickerRequest[]) => {
     // Calculate total expected images
     const totalQty = requests.reduce((acc, req) => acc + req.quantity, 0);
+    const trackingPayload = getGenerationTrackingPayload(requests, totalQty);
+
+    trackEvent('sticker_generate_started', trackingPayload);
     setPendingQuantity(totalQty);
     setIsGenerating(true);
     setError(null);
@@ -127,8 +153,16 @@ const App: React.FC = () => {
       
       // Prepend new images to the list
       setImages(prev => [...newImages, ...prev]);
+      trackEvent('sticker_generate_succeeded', {
+        ...trackingPayload,
+        generated_count: newImages.length,
+      });
     } catch (err: any) {
       setError(err.message || t('error_generic'));
+      trackEvent('sticker_generate_failed', {
+        ...trackingPayload,
+        error_name: err?.name || 'unknown',
+      });
     } finally {
       setIsGenerating(false);
       setPendingQuantity(0);
@@ -138,6 +172,10 @@ const App: React.FC = () => {
   const handleRepairTransparency = async (image: GeneratedImage) => {
     setError(null);
     setTransparencyRepairIds(prev => new Set(prev).add(image.id));
+    trackEvent('sticker_transparency_repair_started', {
+      image_type: getImageTrackingType(image),
+      had_background: image.backgroundRemoved === false,
+    });
 
     try {
       const repairedDataUrl = await repairStickerTransparency(image.dataUrl, {
@@ -156,8 +194,16 @@ const App: React.FC = () => {
             }
           : img
       ));
+      trackEvent('sticker_transparency_repair_succeeded', {
+        image_type: getImageTrackingType(image),
+        changed: repairedDataUrl !== image.dataUrl,
+      });
     } catch (err: any) {
       setError(`Transparency repair failed: ${err.message || 'Please try again.'}`);
+      trackEvent('sticker_transparency_repair_failed', {
+        image_type: getImageTrackingType(image),
+        error_name: err?.name || 'unknown',
+      });
     } finally {
       setTransparencyRepairIds(prev => {
         const next = new Set(prev);
@@ -223,6 +269,10 @@ const App: React.FC = () => {
   const handleSplitCollection = async (image: GeneratedImage) => {
     setError(null);
     setSplittingCollectionIds(prev => new Set(prev).add(image.id));
+    trackEvent('sticker_collection_split_started', {
+      method: 'auto',
+      expected_count: image.stickerCollectionCount || 6,
+    });
 
     try {
       const result = await splitStickerCollectionDetailed(image.dataUrl, {
@@ -236,9 +286,19 @@ const App: React.FC = () => {
       }
 
       applyCollectionSplit(image, result, 'auto');
+      trackEvent('sticker_collection_split_succeeded', {
+        method: 'auto',
+        expected_count: image.stickerCollectionCount || 6,
+        piece_count: result.pieces.length,
+      });
       return true;
     } catch (err: any) {
       setError(`Sticker split failed: ${err.message || 'Please try again.'}`);
+      trackEvent('sticker_collection_split_failed', {
+        method: 'auto',
+        expected_count: image.stickerCollectionCount || 6,
+        error_name: err?.name || 'unknown',
+      });
       return false;
     } finally {
       setSplittingCollectionIds(prev => {
@@ -252,6 +312,11 @@ const App: React.FC = () => {
   const handleManualSplitCollection = async (image: GeneratedImage, rows: number, columns: number) => {
     setError(null);
     setSplittingCollectionIds(prev => new Set(prev).add(image.id));
+    trackEvent('sticker_collection_split_started', {
+      method: 'manual',
+      rows,
+      columns,
+    });
 
     try {
       const result = await splitStickerCollectionByGridDetailed(image.dataUrl, {
@@ -266,8 +331,20 @@ const App: React.FC = () => {
       }
 
       applyCollectionSplit(image, result, 'manual');
+      trackEvent('sticker_collection_split_succeeded', {
+        method: 'manual',
+        rows,
+        columns,
+        piece_count: result.pieces.length,
+      });
     } catch (err: any) {
       setError(`Manual split failed: ${err.message || 'Please try again.'}`);
+      trackEvent('sticker_collection_split_failed', {
+        method: 'manual',
+        rows,
+        columns,
+        error_name: err?.name || 'unknown',
+      });
     } finally {
       setSplittingCollectionIds(prev => {
         const next = new Set(prev);
@@ -291,6 +368,10 @@ const App: React.FC = () => {
     }
 
     setError(null);
+    trackEvent('sticker_recrop_started', {
+      method: collection.splitMethod || 'unknown',
+      item_index: item.splitIndex || null,
+    });
 
     try {
       const recroppedDataUrl = await recropStickerFromSource(collection.dataUrl, item.splitSource.box, adjustments);
@@ -315,12 +396,28 @@ const App: React.FC = () => {
             }
           : image
       ));
+      trackEvent('sticker_recrop_succeeded', {
+        method: collection.splitMethod || 'unknown',
+        item_index: item.splitIndex || null,
+      });
     } catch (err: any) {
       setError(`Recrop failed: ${err.message || 'Please try again.'}`);
+      trackEvent('sticker_recrop_failed', {
+        method: collection.splitMethod || 'unknown',
+        item_index: item.splitIndex || null,
+        error_name: err?.name || 'unknown',
+      });
     }
   };
 
   const handleDeleteCollectionItem = (collectionId: string, itemId: string) => {
+    const collection = images.find(image => image.id === collectionId);
+    const item = collection?.collectionItems?.find(splitItem => splitItem.id === itemId);
+
+    trackEvent('sticker_collection_item_deleted', {
+      method: collection?.splitMethod || 'unknown',
+      item_index: item?.splitIndex || null,
+    });
     setImages(prev => prev.map(image =>
       image.id === collectionId
         ? {
@@ -343,6 +440,10 @@ const App: React.FC = () => {
       const originalStyle = allStyles.find(s => s.name === image.styleName) || STICKER_STYLES[0];
 
       setRegeneratingIds(prev => new Set(prev).add(image.id));
+      trackEvent('sticker_regenerate_started', {
+        image_type: getImageTrackingType(image),
+        has_reference: true,
+      });
       
       try {
           const request: StickerRequest = {
@@ -373,10 +474,17 @@ const App: React.FC = () => {
               setImages(prev => prev.map(img => 
                   img.id === image.id ? { ...newImage, id: image.id, createdAt: Date.now() } : img
               ));
+              trackEvent('sticker_regenerate_succeeded', {
+                image_type: getImageTrackingType(image),
+              });
           }
 
       } catch (err: any) {
           setError(`Regeneration failed: ${err.message}`);
+          trackEvent('sticker_regenerate_failed', {
+            image_type: getImageTrackingType(image),
+            error_name: err?.name || 'unknown',
+          });
       } finally {
           setRegeneratingIds(prev => {
               const next = new Set(prev);
@@ -397,12 +505,28 @@ const App: React.FC = () => {
           sourceType: 'uploaded'
       };
       setImages(prev => [newImage, ...prev]);
+      trackEvent('sticker_uploaded', {
+        style_kind: STICKER_STYLES.some(style => style.name === styleName) ? 'built_in' : 'custom',
+      });
   };
 
   const closePreview = () => setPreviewImage(null);
 
+  const handlePreviewImage = (image: GeneratedImage) => {
+    trackEvent('sticker_preview_opened', {
+      image_type: getImageTrackingType(image),
+      has_text: Boolean(image.hasText),
+      has_reference: Boolean(image.hasReferenceImage),
+    });
+    setPreviewImage(image);
+  };
+
   // Function to delete an image
   const handleDeleteImage = (id: string) => {
+    const image = images.find(img => img.id === id);
+    trackEvent('sticker_deleted', {
+      image_type: image ? getImageTrackingType(image) : 'unknown',
+    });
     setImages(prev => prev.filter(img => img.id !== id));
     if (previewImage?.id === id) {
         closePreview();
@@ -411,6 +535,9 @@ const App: React.FC = () => {
 
   const handleDeleteImages = (ids: string[]) => {
     const idSet = new Set(ids);
+    trackEvent('sticker_batch_deleted', {
+      count: ids.length,
+    });
     setImages(prev => prev.filter(img => !idSet.has(img.id)));
     if (previewImage && idSet.has(previewImage.id)) {
       closePreview();
@@ -517,7 +644,7 @@ const App: React.FC = () => {
                    images={images}
                    isGenerating={isGenerating}
                    pendingQuantity={pendingQuantity}
-                   onPreview={setPreviewImage}
+                   onPreview={handlePreviewImage}
                    onDelete={handleDeleteImage}
                    onDeleteMany={handleDeleteImages}
                    onRegenerate={handleRegenerate}

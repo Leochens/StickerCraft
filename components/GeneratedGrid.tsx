@@ -27,6 +27,7 @@ import CustomSelect from './ui/CustomSelect';
 import Badge from './ui/Badge';
 import IconButton from './ui/IconButton';
 import { CHECKERBOARD_CLASS } from '../utils/uiClasses';
+import { trackEvent } from '../services/analytics';
 
 interface GeneratedGridProps {
   images: GeneratedImage[];
@@ -327,6 +328,10 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       setSelectedIds(new Set());
+      trackEvent('sticker_batch_downloaded', {
+        selected_count: selectedImages.length,
+        exported_count: exportItems.length,
+      });
     } catch (error) {
       console.error("Failed to zip images", error);
       setZipError(t('zip_failed'));
@@ -373,7 +378,25 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
   };
 
   const openCollection = (image: GeneratedImage) => {
+    trackEvent('sticker_collection_opened', {
+      split_count: image.collectionItems?.length || 0,
+      expected_count: image.stickerCollectionCount || null,
+    });
     setActiveCollectionId(image.id);
+  };
+
+  const openBeadPattern = (image: GeneratedImage, source: 'gallery_card' | 'collection_item') => {
+    trackEvent('bead_pattern_opened', {
+      source,
+      image_type: image.sourceType === 'uploaded'
+        ? 'uploaded'
+        : image.isStickerCollection
+          ? 'collection'
+          : image.isThreeViews
+            ? 'three_views'
+            : 'single',
+    });
+    setBeadPatternImage(image);
   };
 
   const runAutoSplit = async () => {
@@ -429,6 +452,10 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+      trackEvent('sticker_collection_items_downloaded', {
+        count: collectionItems.length,
+        method: activeCollection.splitMethod || 'unknown',
+      });
     } catch (error) {
       console.error("Failed to zip collection stickers", error);
       setZipError(t('zip_failed'));
@@ -699,7 +726,13 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                           icon={<Download size={14} />}
                           aria-label={t('download_png')}
                           title={t('download_png')}
-                          onClick={() => downloadDataUrl(item.dataUrl, `sticker-${item.id}.png`)}
+                          onClick={() => {
+                            downloadDataUrl(item.dataUrl, `sticker-${item.id}.png`);
+                            trackEvent('sticker_collection_item_downloaded', {
+                              method: activeCollection.splitMethod || 'unknown',
+                              item_index: item.splitIndex || index + 1,
+                            });
+                          }}
                           className="p-1.5"
                         />
                         <IconButton
@@ -708,7 +741,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
                           icon={<Grid3X3 size={14} />}
                           aria-label={language === 'zh' ? '拼豆图纸' : 'Bead pattern'}
                           title={language === 'zh' ? '拼豆图纸' : 'Bead pattern'}
-                          onClick={() => setBeadPatternImage(item)}
+                          onClick={() => openBeadPattern(item, 'collection_item')}
                           className="p-1.5 hover:bg-cyan-50 hover:text-cyan-700"
                         />
                         {onDeleteCollectionItem && (
@@ -816,6 +849,10 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             onClick={() => {
               const preset = PRESET_PROMPTS[language]?.[0] ?? PRESET_PROMPTS.en[0];
               window.dispatchEvent(new CustomEvent('stickerCraft:fill-preset', { detail: preset }));
+              trackEvent('prompt_preset_used', {
+                language,
+                source: 'empty_gallery',
+              });
               onSwitchToCreate?.();
             }}
             className="cursor-pointer bg-orange-500 text-white font-bold px-4 py-2 rounded-xl hover:bg-orange-600 transition-colors duration-200 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2"
@@ -966,7 +1003,7 @@ const GeneratedGrid: React.FC<GeneratedGridProps> = ({
             onRepairTransparency={onRepairTransparency}
             onSplitCollection={onSplitCollection}
             onOpenCollection={openCollection}
-            onOpenBeadPattern={setBeadPatternImage}
+            onOpenBeadPattern={(image) => openBeadPattern(image, 'gallery_card')}
             isSelected={selectedIds.has(img.id)}
             onToggleSelection={toggleSelection}
             selectionMode={selectedIds.size > 0}

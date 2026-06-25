@@ -5,6 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { CHECKERBOARD_CLASS } from '../utils/uiClasses';
 import Badge from './ui/Badge';
 import IconButton from './ui/IconButton';
+import { trackEvent } from '../services/analytics';
 
 interface StickerCardProps {
   image: GeneratedImage;
@@ -116,6 +117,17 @@ const StickerCard: React.FC<StickerCardProps> = ({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    trackEvent('sticker_downloaded', {
+      image_type: image.sourceType === 'uploaded'
+        ? 'uploaded'
+        : image.isStickerCollection
+          ? 'collection'
+          : image.isThreeViews
+            ? 'three_views'
+            : 'single',
+      has_text: Boolean(image.hasText),
+      has_reference: Boolean(image.hasReferenceImage),
+    });
   };
 
   const handleCardClick = () => {

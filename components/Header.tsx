@@ -28,6 +28,7 @@ import IosDisclosureRow from './ui/IosDisclosureRow';
 import TextLink from './ui/TextLink';
 import MenuItemButton from './ui/MenuItemButton';
 import IosTextField from './ui/IosTextField';
+import { trackEvent } from '../services/analytics';
 
 const Header: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
@@ -184,12 +185,22 @@ const Header: React.FC = () => {
   };
 
   const handleSaveSettings = () => {
+    trackEvent('api_settings_saved', {
+      active_provider: draft.activeProvider,
+      is_configured: draftProviderConfigured,
+      uses_custom_endpoint: activeDraft.endpoint !== getProviderDefaultEndpoint(draft.activeProvider),
+      uses_custom_image_model: isCustomImageModel,
+      uses_custom_text_model: isCustomTextModel,
+    });
     saveAPISettings(draft);
     setSettings(loadAPISettings());
     setIsSettingsOpen(false);
   };
 
   const handleResetSettings = () => {
+    trackEvent('api_settings_reset', {
+      active_provider: draft.activeProvider,
+    });
     const defaults = resetAPISettings();
     setSettings(defaults);
     setDraft(defaults);
@@ -264,6 +275,12 @@ const Header: React.FC = () => {
                     selected={language === option.code}
                     trailing={language === option.code ? <Check size={14} /> : undefined}
                     onClick={() => {
+                      if (language !== option.code) {
+                        trackEvent('language_changed', {
+                          from: language,
+                          to: option.code,
+                        });
+                      }
                       setLanguage(option.code as Language);
                       setIsLanguageOpen(false);
                     }}

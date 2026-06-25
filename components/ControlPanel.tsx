@@ -14,6 +14,7 @@ import ChipGroup from './ui/ChipGroup';
 import StylePickerPanel from './ui/StylePickerPanel';
 import { getStylePreviewImage } from '../utils/stylePreview';
 import { FOCUS_RING_CLASS } from '../utils/uiClasses';
+import { trackEvent } from '../services/analytics';
 
 interface ControlPanelProps {
   onGenerate: (requests: StickerRequest[]) => void;
@@ -154,6 +155,11 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       setCollectionItemPrompts(prev => (
         Array.from({ length: stickerCollectionCount }, (_, index) => items[index] || prev[index] || '')
       ));
+      trackEvent('prompt_suggestions_generated', {
+        source: 'collection_items',
+        requested_count: stickerCollectionCount,
+        result_count: items.length,
+      });
     } finally {
       setIsGeneratingCollectionItems(false);
     }
@@ -205,6 +211,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     } else {
         setPrompt(prev => prev + '\n' + preset);
     }
+    trackEvent('prompt_preset_used', {
+      language,
+    });
   };
 
   // Handler for Style Creation Image
@@ -231,6 +240,9 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   const handleReferenceSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      trackEvent('reference_image_added', {
+        file_type: file.type || 'unknown',
+      });
       const reader = new FileReader();
       reader.onloadend = () => {
         setReferenceImage(reader.result as string);
@@ -280,6 +292,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
       onAddCustomStyle(newStyle);
       setSelectedStyle(newStyle.id);
+      trackEvent('custom_style_created', {
+        has_text: Boolean(newStyleText.trim()),
+        has_image: Boolean(newStyleImageFile),
+      });
       
       // Reset Form
       setNewStyleText('');
@@ -290,6 +306,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
     } catch (err) {
       console.error("Style creation failed", err);
+      trackEvent('custom_style_failed', {
+        has_text: Boolean(newStyleText.trim()),
+        has_image: Boolean(newStyleImageFile),
+      });
       alert(t('style_creation_failed'));
     } finally {
       setIsAnalyzing(false);
@@ -303,6 +323,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     try {
         const results = await generateRelatedPrompts(promptCategory);
         setGeneratedPrompts(results);
+        trackEvent('prompt_suggestions_generated', {
+          source: 'prompt_generator',
+          result_count: results.length,
+        });
     } catch (e) {
         console.error(e);
     } finally {
@@ -320,6 +344,10 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     setIsPromptGeneratorOpen(false);
     setPromptCategory('');
     setGeneratedPrompts([]);
+    trackEvent('prompt_suggestions_used', {
+      source: 'prompt_generator',
+      count: generatedPrompts.length,
+    });
   };
 
   const mainPromptLabel = layoutMode === 'collection' ? t('config_sticker_collection') : t('prompt_label');
