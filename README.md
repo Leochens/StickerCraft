@@ -50,6 +50,18 @@ StickerCraft AI is a React + Vite sticker generation app originally prototyped i
 
 The app runs entirely in the browser and lets users configure their API provider, API key, endpoint, image model, and text model at runtime. It supports Gemini/Nano Banana models, GPT image models, and compatible proxy services that expose the expected API formats.
 
+## License and Reuse
+
+StickerCraft is an open-source project licensed under AGPL-3.0-only. You may use, study, modify, and redistribute the code, including for commercial purposes, as long as you follow the license terms.
+
+The repository is organized to make reuse straightforward:
+
+- `apps/open-web` contains the open-source BYOK browser app.
+- `packages/core` contains reusable sticker generation types, provider helpers, prompt helpers, image processing, bead pattern, and export logic.
+- `packages/ui` contains reusable React UI components for the sticker creation workflow.
+
+If you need terms different from AGPL-3.0-only, see [COMMERCIAL-LICENSE.md](./COMMERCIAL-LICENSE.md).
+
 ## Features
 
 - Text-to-sticker generation, one prompt per line.
@@ -159,7 +171,7 @@ Runtime settings saved in the UI always take priority over `.env.local`.
 npm run build
 ```
 
-Build output is written to `dist/`.
+Build output is written to `apps/open-web/dist/`.
 
 Preview the production build locally:
 
@@ -171,26 +183,15 @@ npm run preview
 
 ```text
 .
-├── App.tsx                         # Main app layout, gallery state, generation flow
-├── components/
-│   ├── ControlPanel.tsx            # Prompts, styles, model override, generation controls
-│   ├── GeneratedGrid.tsx           # Gallery, asset readiness, selection, upload, ZIP download
-│   ├── Header.tsx                  # Logo, language menu, API settings modal
-│   └── StickerCard.tsx             # Individual sticker card and asset labels
-├── contexts/
-│   └── LanguageContext.tsx         # Multilingual UI state
+├── apps/open-web                   # Open-source BYOK browser app
+├── packages/core                   # Reusable sticker generation and export logic
+├── packages/ui                     # Reusable React workflow components
 ├── docs/
 │   └── images/                     # README screenshots
 ├── public/
 │   └── logo.svg                    # App logo and favicon
-├── services/
-│   ├── apiConfig.ts                # API provider settings, endpoint parsing, model suggestions
-│   ├── geminiService.ts            # Image generation, style analysis, prompt generation
-│   └── storageService.ts           # Browser storage for gallery and custom styles
-├── constants.ts                    # Presets, translations, ratios, fonts, colors
-├── types.ts                        # Shared TypeScript types
-├── index.html                      # Vite HTML entry
-└── index.tsx                       # React mount entry
+├── LICENSE                         # AGPL-3.0-only license
+└── COMMERCIAL-LICENSE.md           # Optional alternative licensing terms
 ```
 
 ## Usage Notes

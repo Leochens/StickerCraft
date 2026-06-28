@@ -50,6 +50,18 @@ StickerCraft AI 是一个基于 React + Vite 的贴纸生成工具，最初由 G
 
 项目完全在浏览器中运行，支持在页面内配置 API provider、API key、endpoint、图片模型和文本模型。它可以使用 Gemini/Nano Banana 模型、GPT 图片模型，也可以接入符合对应 API 格式的中转站。
 
+## 开源许可与复用
+
+StickerCraft 是一个使用 AGPL-3.0-only 授权的开源项目。你可以使用、学习、修改和再分发这份代码，也可以用于商业用途，只要遵守对应开源许可证条款。
+
+仓库结构也尽量方便复用：
+
+- `apps/open-web` 是开源 BYOK 浏览器应用。
+- `packages/core` 放可复用的贴纸生成类型、provider helper、prompt helper、图片处理、拼豆图纸和导出逻辑。
+- `packages/ui` 放可复用的 React 贴纸工作流组件。
+
+如果你需要 AGPL-3.0-only 之外的其他授权条款，可以查看 [COMMERCIAL-LICENSE.md](./COMMERCIAL-LICENSE.md)。
+
 ## 功能特性
 
 - 文本生成贴纸：一行一个提示词，可批量生成。
@@ -159,7 +171,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 npm run build
 ```
 
-构建产物输出到 `dist/`。
+构建产物输出到 `apps/open-web/dist/`。
 
 本地预览构建结果：
 
@@ -171,26 +183,15 @@ npm run preview
 
 ```text
 .
-├── App.tsx                         # 应用主布局、图库状态、生成流程
-├── components/
-│   ├── ControlPanel.tsx            # 提示词、风格、模型和生成配置
-│   ├── GeneratedGrid.tsx           # 图库、素材状态、选择、上传、ZIP 下载
-│   ├── Header.tsx                  # Logo、语言菜单、API 配置弹窗
-│   └── StickerCard.tsx             # 单张贴纸卡片和素材标签
-├── contexts/
-│   └── LanguageContext.tsx         # 多语言状态
+├── apps/open-web                   # 开源 BYOK 浏览器应用
+├── packages/core                   # 可复用贴纸生成与导出逻辑
+├── packages/ui                     # 可复用 React 工作流组件
 ├── docs/
 │   └── images/                     # README 展示图
 ├── public/
 │   └── logo.svg                    # 应用 Logo 和 favicon
-├── services/
-│   ├── apiConfig.ts                # API provider 配置、Endpoint 解析、模型建议
-│   ├── geminiService.ts            # 图片生成、风格分析、提示词生成
-│   └── storageService.ts           # 图库和自定义风格的浏览器存储
-├── constants.ts                    # 预设、翻译、比例、字体、颜色
-├── types.ts                        # 共享类型
-├── index.html                      # Vite HTML 入口
-└── index.tsx                       # React 挂载入口
+├── LICENSE                         # AGPL-3.0-only 许可证
+└── COMMERCIAL-LICENSE.md           # 可选的其他授权条款
 ```
 
 ## 使用建议
