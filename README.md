@@ -248,3 +248,5 @@ Issues and pull requests are welcome. Good first areas include:
 - Backend proxy support for safer public deployments.
 - Import/export for generation settings.
 - Better edge cleanup controls for transparent PNG output.
+
+- [VectorForge Daily](https://github.com/airdropia/auto-earn-engine) — MIT-licensed, dependency-free Python pipeline that generates memorial shadow box SVGs with an editable name plate (you type the name inside Cricut, no custom order needed) plus original 7-layer mandala bundles; one file per physical layer, 6500px PNG renders, quality gates and a static storefront, running entirely on GitHub Actions.
